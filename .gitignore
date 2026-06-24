@@ -1,0 +1,40 @@
+# ── 点前缀文件夹 / Dot-prefixed directories ──
+.*/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── 虚拟环境 ──
+.venv/
+venv/
+
+# ── IDE / 编辑器 ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── 杂项 ──
+.DS_Store
+Thumbs.db
+
+# ── 日志 ──
+logs/
+
+# ── OCR 模型文件夹 (体积大，单独下载) ──
+PP-OCRv5_mobile_det_infer/
+PP-OCRv5_mobile_rec_infer/
+PP-LCNet_x1_0_doc_ori/
+PP-LCNet_x1_0_textline_ori/
+UVDoc/
+easyocr_models/
+
+# ── 打包产物 ──
+*.zip
+*.7z
