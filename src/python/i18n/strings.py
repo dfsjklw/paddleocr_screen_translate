@@ -12,26 +12,6 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 
     # ── 按钮 ──
-    "btn.start": {
-        "en": "Start",
-        "zh": "开始",
-    },
-    "btn.single": {
-        "en": "Single",
-        "zh": "单次翻译",
-    },
-    "btn.pause": {
-        "en": "Pause",
-        "zh": "暂停",
-    },
-    "btn.resume": {
-        "en": "Resume",
-        "zh": "继续",
-    },
-    "btn.stop": {
-        "en": "Stop",
-        "zh": "停止",
-    },
     "btn.test": {
         "en": "Test",
         "zh": "测试",
@@ -40,27 +20,17 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Apply Hotkeys",
         "zh": "应用快捷键",
     },
+    "btn.region_translate": {
+        "en": "Region",
+        "zh": "划屏翻译",
+    },
+    "btn.clear_overlay": {
+        "en": "Clear",
+        "zh": "清除覆盖层",
+    },
     "btn.lang_toggle": {
         "en": "中",
         "zh": "EN",
-    },
-
-    # ── 差异检测按钮 ──
-    "diff.on": {
-        "en": "Diff Detection: ON",
-        "zh": "差异检测: 开",
-    },
-    "diff.off": {
-        "en": "Diff Detection: OFF",
-        "zh": "差异检测: 关",
-    },
-    "downscale.on": {
-        "en": "720p Downscale: ON",
-        "zh": "720p 缩放: 开",
-    },
-    "downscale.off": {
-        "en": "720p Downscale: OFF",
-        "zh": "720p 缩放: 关",
     },
 
     # ── 状态 ──
@@ -68,41 +38,37 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Ready",
         "zh": "就绪",
     },
-    "status.running": {
-        "en": "Running",
-        "zh": "运行中",
-    },
-    "status.paused": {
-        "en": "Paused",
-        "zh": "已暂停",
-    },
-    "status.stopped": {
-        "en": "Stopped",
-        "zh": "已停止",
-    },
     "status.initializing": {
         "en": "Initializing...",
         "zh": "初始化中…",
     },
-    "status.single_init": {
-        "en": "Single: initializing...",
-        "zh": "单次: 初始化中…",
+    "status.region_init": {
+        "en": "Region: initializing...",
+        "zh": "划屏: 初始化中…",
     },
-    "status.single_capturing": {
-        "en": "Single: capturing...",
-        "zh": "单次: 截图中…",
+    "status.region_capturing": {
+        "en": "Region: capturing...",
+        "zh": "划屏: 截图中…",
     },
-    "status.single_done": {
-        "en": "Single: done",
-        "zh": "单次: 完成",
+    "status.region_done": {
+        "en": "Region: done",
+        "zh": "划屏: 完成",
     },
-    "status.single_error": {
-        "en": "Single: error: {error}",
-        "zh": "单次: 错误: {error}",
+    "status.region_error": {
+        "en": "Region: error: {error}",
+        "zh": "划屏: 错误: {error}",
     },
-    "status.single_init_failed": {
-        "en": "Single: init failed",
-        "zh": "单次: 初始化失败",
+    "status.region_init_failed": {
+        "en": "Region: init failed",
+        "zh": "划屏: 初始化失败",
+    },
+    "status.region_selecting": {
+        "en": "Region: drag to select area (ESC to cancel)",
+        "zh": "划屏: 拖动选择区域 (ESC 取消)",
+    },
+    "status.overlay_cleared": {
+        "en": "Overlay cleared",
+        "zh": "覆盖层已清除",
     },
     "status.error": {
         "en": "Error: {error}",
@@ -111,44 +77,6 @@ STRINGS: dict[str, dict[str, str]] = {
     "status.warning_ocr": {
         "en": "Warning: OCR init failed",
         "zh": "警告: OCR 初始化失败",
-    },
-    "status.label": {
-        "en": "Status: {status}",
-        "zh": "状态: {status}",
-    },
-
-    # ── 区块标题 ──
-    "section.basic": {
-        "en": "Basic",
-        "zh": "基础设置",
-    },
-    "section.ocr": {
-        "en": "OCR ({engine})",
-        "zh": "OCR ({engine})",
-    },
-    "section.translator": {
-        "en": "Translator (llama.cpp)",
-        "zh": "翻译器 (llama.cpp)",
-    },
-    "section.overlay": {
-        "en": "Overlay",
-        "zh": "覆盖层",
-    },
-    "section.capture": {
-        "en": "Capture",
-        "zh": "采集",
-    },
-    "section.hotkeys": {
-        "en": "Hotkeys",
-        "zh": "快捷键",
-    },
-    "section.logging": {
-        "en": "Logging",
-        "zh": "日志",
-    },
-    "section.live_result": {
-        "en": "Live OCR & Translation",
-        "zh": "实时识别与翻译",
     },
 
     # ── 字段标签 ──
@@ -167,10 +95,6 @@ STRINGS: dict[str, dict[str, str]] = {
     "field.cycle_interval": {
         "en": "Cycle interval (s):",
         "zh": "周期间隔 (秒):",
-    },
-    "field.diff_threshold": {
-        "en": "Diff threshold:",
-        "zh": "差异阈值:",
     },
     "field.max_text_boxes": {
         "en": "Max text boxes:",
@@ -256,25 +180,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Text color:",
         "zh": "文字颜色:",
     },
-    "field.backend": {
-        "en": "Backend:",
-        "zh": "采集端:",
+    "field.hotkey_region": {
+        "en": "Region Trans:",
+        "zh": "划屏翻译:",
     },
-    "field.camera_index": {
-        "en": "Camera index:",
-        "zh": "摄像头索引:",
-    },
-    "field.fps": {
-        "en": "FPS:",
-        "zh": "帧率:",
-    },
-    "field.hotkey_single": {
-        "en": "Single Shot:",
-        "zh": "单次翻译:",
-    },
-    "field.hotkey_pause": {
-        "en": "Pause/Resume:",
-        "zh": "暂停/继续:",
+    "field.hotkey_clear": {
+        "en": "Clear Overlay:",
+        "zh": "清除覆盖层:",
     },
     "field.hotkey_quit": {
         "en": "Quit:",
@@ -282,41 +194,25 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 
     # ── 复选框 ──
-    "cb.diff_detection": {
-        "en": "Enable frame diff detection (skip unchanged frames)",
-        "zh": "启用帧差异检测 (跳过无变化帧)",
-    },
-    "cb.invert_dark": {
-        "en": "Auto-invert dark backgrounds",
-        "zh": "深色背景自动反色",
-    },
-    "cb.denoise": {
-        "en": "Denoise before detection (Gaussian blur)",
-        "zh": "检测前去噪 (高斯模糊)",
-    },
-    "cb.enhance": {
-        "en": "Enhance before recognition (CLAHE)",
-        "zh": "识别前增强 (CLAHE)",
-    },
-    "cb.exclude_capture": {
-        "en": "Exclude overlay from capture (anti-pollution)",
-        "zh": "从采集中排除覆盖层 (防污染)",
-    },
     "cb.logging": {
         "en": "Enable cycle logging",
         "zh": "启用周期日志",
     },
 
     # ── 工具提示 ──
-    "tooltip.single": {
-        "en": "Single-shot translation (capture one frame, OCR, translate, overlay)",
-        "zh": "单次翻译 (截取一帧 → OCR → 翻译 → 覆盖显示)",
+    "tooltip.region": {
+        "en": "Region translation — drag to select screen area, OCR, translate, overlay at original position",
+        "zh": "划屏翻译 — 拖动选择屏幕区域 → OCR → 翻译 → 原位覆盖显示",
+    },
+    "tooltip.clear_overlay": {
+        "en": "Clear all overlay text from the screen",
+        "zh": "清除屏幕上所有覆盖层文字",
     },
 
     # ── 快捷键提示 ──
     "hotkey.label": {
-        "en": "Hotkeys: {single} = Single Shot, {pause} = Pause/Resume, {quit} = Quit",
-        "zh": "快捷键: {single} = 单次翻译, {pause} = 暂停/继续, {quit} = 退出",
+        "en": "Hotkeys: {region} = Region, {clear} = Clear, {quit} = Quit",
+        "zh": "快捷键: {region} = 划屏翻译, {clear} = 清除覆盖层, {quit} = 退出",
     },
 
     # ── 对话框消息 ──
@@ -414,10 +310,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "🖼  Overlay",
         "zh": "🖼  覆盖层",
     },
-    "tab.capture": {
-        "en": "📷  Capture",
-        "zh": "📷  采集",
-    },
     "tab.hotkeys": {
         "en": "⌨  Hotkeys",
         "zh": "⌨  快捷键",
@@ -439,5 +331,15 @@ STRINGS: dict[str, dict[str, str]] = {
     "result.trans_header": {
         "en": "Cycle #{id} — Translation ({count} items) | Total: {total}ms",
         "zh": "周期 #{id} — 翻译 ({count} 项) | 总计: {total}ms",
+    },
+
+    # ── 划屏翻译区域选择器 ──
+    "region.instructions": {
+        "en": "Click and drag to select a region for translation\nPress ESC or right-click to cancel",
+        "zh": "点击并拖动选择要翻译的区域\n按 ESC 或右键取消",
+    },
+    "region.dimensions": {
+        "en": "{w} x {h}",
+        "zh": "{w} x {h}",
     },
 }

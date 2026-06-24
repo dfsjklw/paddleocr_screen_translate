@@ -2,12 +2,17 @@
 config/settings.py — YAML 配置加载与验证模块
 """
 import os
+import sys
 import yaml
 from dataclasses import dataclass, field
 from typing import Any
 
 # settings.py → config → python → src → project_root
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# 兼容 PyInstaller 打包：frozen 时用 sys._MEIPASS，否则基于 __file__ 推算
+if getattr(sys, 'frozen', False):
+    _BASE_DIR = sys._MEIPASS
+else:
+    _BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 @dataclass
@@ -20,7 +25,6 @@ class LlamaConfig:
         "temperature": 0.7, "top_k": 20, "top_p": 0.6,
         "repeat_penalty": 1.05, "n_predict": 512,
     })
-
 
 
 @dataclass
@@ -40,21 +44,8 @@ class OcrConfig:
     box_threshold: float = 0.6
     min_confidence: float = 0.5
     det_resize_long: int = 960
-    # 图像预处理开关
-    det_invert_dark: bool = True    # 深色背景自动反色
-    det_denoise: bool = False       # 检测前去噪 (Gaussian blur)
-    rec_enhance: bool = False       # 识别前增强 (CLAHE)
     # EasyOCR 专用配置
     easyocr_languages: list = field(default_factory=lambda: ["en"])  # EasyOCR 语言列表
-
-
-@dataclass
-class CaptureConfig:
-    backend: str = "directshow"
-    camera_index: int = 0
-    fps: int = 30
-    monitor: int = 1          # screen后端: 显示器索引 (1=主显示器)
-    region: list | None = None  # screen后端: [x, y, w, h] 或 null=全屏
 
 
 @dataclass
@@ -63,24 +54,20 @@ class OverlayConfig:
     font_family: str = "Microsoft YaHei"
     background_opacity: float = 0.92   # 背景不透明度 (0~1)，越高越能遮盖原文
     text_color: str = "#FFFFFF"
-    exclude_from_capture: bool = True
 
 
 @dataclass
 class PipelineConfig:
     cycle_interval: float = 5.0
-    diff_detection: bool = False
-    diff_threshold: float = 0.95
     max_text_boxes: int = 50
-    downscale_max_size: int = 720   # OCR前将长边>此值的图像等比缩至此值; 0=不缩放
 
 
 @dataclass
 class GuiConfig:
     ui_language: str = "en"           # UI语言: "en" 或 "zh"
-    hotkey_pause: str = "F9"
     hotkey_quit: str = "F10"
-    hotkey_single_translate: str = "F8"
+    hotkey_region_translate: str = "F7"
+    hotkey_clear_overlay: str = "F6"
 
 
 @dataclass
@@ -92,7 +79,6 @@ class LoggingConfig:
 
 @dataclass
 class AppConfig:
-    capture: CaptureConfig = field(default_factory=CaptureConfig)
     ocr: OcrConfig = field(default_factory=OcrConfig)
     translator: TranslatorConfig = field(default_factory=TranslatorConfig)
     source_lang: str = "en"
