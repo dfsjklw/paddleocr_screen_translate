@@ -117,17 +117,19 @@ class PaddleOcrEngine:
             # 必须同时指定 model_name 和 model_dir，否则 PaddleOCR 默认使用 v6 名称
             # enable_mkldnn=False 避免某些CPU上的ONEDNN PIR兼容性问题
             self._ocr = PaddleOCR(
-                lang='en',              # 英文识别词典
                 text_detection_model_name='PP-OCRv5_mobile_det',
                 text_detection_model_dir=det_model_dir,
                 text_recognition_model_name='PP-OCRv5_mobile_rec',
                 text_recognition_model_dir=rec_model_dir,
+                use_doc_orientation_classify=False,   # 屏幕截屏无需文档方向分类
+                use_doc_unwarping=False,              # 屏幕截屏无需文档展平
+                use_textline_orientation=False,        # 屏幕截屏文本方向固定
                 enable_mkldnn=False,    # 禁用MKLDNN以兼容当前Paddle版本
                 cpu_threads=self._ocr_cfg.cpu_threads,
                 text_det_thresh=self._ocr_cfg.det_threshold,
                 text_det_box_thresh=self._ocr_cfg.box_threshold,
                 text_rec_score_thresh=self._ocr_cfg.min_confidence,
-                det_limit_side_len=self._ocr_cfg.det_resize_long,
+                text_det_limit_side_len=self._ocr_cfg.det_resize_long,
             )
 
             self._initialized = True

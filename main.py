@@ -7,7 +7,11 @@ import sys
 import os
 
 # 确保项目根目录在 sys.path 中
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 兼容 PyInstaller 打包：frozen 时用 sys._MEIPASS，否则用 __file__
+if getattr(sys, 'frozen', False):
+    _BASE_DIR = sys._MEIPASS
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if _BASE_DIR not in sys.path:
     sys.path.insert(0, _BASE_DIR)
 

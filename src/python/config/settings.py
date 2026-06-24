@@ -2,12 +2,17 @@
 config/settings.py — YAML 配置加载与验证模块
 """
 import os
+import sys
 import yaml
 from dataclasses import dataclass, field
 from typing import Any
 
 # settings.py → config → python → src → project_root
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# 兼容 PyInstaller 打包：frozen 时用 sys._MEIPASS，否则基于 __file__ 推算
+if getattr(sys, 'frozen', False):
+    _BASE_DIR = sys._MEIPASS
+else:
+    _BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 @dataclass
