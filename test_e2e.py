@@ -238,14 +238,12 @@ def test_config_hotkeys():
     assert cfg.gui.hotkey_clear_overlay == "F6", \
         f"Expected 'F6', got '{cfg.gui.hotkey_clear_overlay}'"
 
-    # Check existing hotkeys still work
-    assert cfg.gui.hotkey_single_translate == "F8"
-    assert cfg.gui.hotkey_pause == "F9"
+    # Check quit hotkey still works
     assert cfg.gui.hotkey_quit == "F10"
 
     print(f"  [PASS] hotkey_region_translate = '{cfg.gui.hotkey_region_translate}'")
     print(f"  [PASS] hotkey_clear_overlay = '{cfg.gui.hotkey_clear_overlay}'")
-    print(f"  [PASS] All 5 hotkey fields present with correct defaults")
+    print(f"  [PASS] All 3 hotkey fields present with correct defaults")
     return True
 
 
@@ -286,10 +284,10 @@ def test_i18n_strings():
             elif not STRINGS[key][lang]:
                 errors.append(f"Empty '{lang}' translation for key: {key}")
 
-    # Verify hotkey.label includes new placeholders
+    # Verify hotkey.label includes expected placeholders
     hotkey_label_en = STRINGS["hotkey.label"]["en"]
     hotkey_label_zh = STRINGS["hotkey.label"]["zh"]
-    for placeholder in ("{region}", "{clear}"):
+    for placeholder in ("{region}", "{clear}", "{quit}"):
         assert placeholder in hotkey_label_en, \
             f"Missing {placeholder} in English hotkey.label"
         assert placeholder in hotkey_label_zh, \
@@ -301,7 +299,7 @@ def test_i18n_strings():
         return False
 
     print(f"  [PASS] All {len(required_keys)} new i18n keys present in en/zh")
-    print("  [PASS] hotkey.label includes {region} and {clear} placeholders")
+    print("  [PASS] hotkey.label includes {region}, {clear}, {quit} placeholders")
     return True
 
 

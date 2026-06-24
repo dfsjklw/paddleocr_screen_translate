@@ -2,8 +2,6 @@
 overlay/overlay.py — 覆盖层模块
 
 使用 wxPython 创建透明覆盖窗口，在屏幕上绘制翻译文本。
-通过 Win32 API SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)
-使覆盖层对 DXGI 捕获不可见，防止递归翻译。
 
 线程安全设计：
 - 所有公共方法均可从任意线程安全调用
@@ -27,7 +25,6 @@ from ..ocr import TextBox
 
 
 # Win32 常量
-WDA_EXCLUDEFROMCAPTURE = 0x00000011
 GWL_EXSTYLE = -20
 WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
@@ -131,7 +128,6 @@ class OverlayWindow(wx.Frame):
     - 全屏大小，透明背景
     - 置顶显示 (WS_EX_TOPMOST)
     - 鼠标穿透 (WS_EX_TRANSPARENT)
-    - 对 DXGI 不可见 (WDA_EXCLUDEFROMCAPTURE)
     - 线程安全：所有公开方法可通过 wx.CallAfter 从任意线程调用
     - 使用 UpdateLayeredWindow 实现 per-pixel alpha 渲染
     """
@@ -143,10 +139,6 @@ class OverlayWindow(wx.Frame):
         self._font_family = config.font_family
         self._bg_opacity = int(config.background_opacity * 255)
         self._text_color = _parse_hex_color(config.text_color)
-        self._exclude_capture = config.exclude_from_capture
-
-        # 缓存字体对象
-        self._cached_font: Optional[wx.Font] = None
 
         # 获取屏幕尺寸
         screen_w = wx.Display(0).GetGeometry().GetWidth() if wx.Display.GetCount() > 0 else 1920
@@ -179,16 +171,6 @@ class OverlayWindow(wx.Frame):
         ex_style = _user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
         new_ex = ex_style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_TOOLWINDOW
         _user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex)
-
-        # WDA_EXCLUDEFROMCAPTURE: 使覆盖层对屏幕捕获不可见
-        if self._exclude_capture:
-            ret = _user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)
-            if ret:
-                print("[Overlay] WDA_EXCLUDEFROMCAPTURE enabled")
-                sys.stdout.flush()
-            else:
-                print("[Overlay] WDA_EXCLUDEFROMCAPTURE failed (requires Win10 2004+)")
-                sys.stdout.flush()
 
     # ── 线程安全的公开 API ──────────────────────────────────────────
 
@@ -253,8 +235,6 @@ class OverlayWindow(wx.Frame):
         image = wx.Image(w, h)
         image.InitAlpha()
         # 显式将 RGB 和 alpha 数据置零，使位图初始为全透明。
-        # GDI+ 默认 SourceOver 混合模式下，用透明画刷绘制不会改变目标像素，
-        # 因此不能依赖 GDI+ 来清除背景，必须直接在位图数据中清零。
         image.SetData(b'\x00' * (w * h * 3))
         image.SetAlpha(b'\x00' * (w * h))
         bitmap = wx.Bitmap(image, 32)
@@ -279,7 +259,7 @@ class OverlayWindow(wx.Frame):
         gc.DrawRectangle(0, 0, w, h)
 
         # 绘制所有文本项
-        font = self._get_font()
+        font = self._create_font()
         gc.SetFont(font, self._text_color)
         for item in self._items:
             self._draw_item(gc, item)
@@ -308,9 +288,6 @@ class OverlayWindow(wx.Frame):
         hwnd = self.GetHandle()
         screen_dc = wx.ScreenDC()
         hdc_screen = screen_dc.GetHDC()
-        # GetHDC() 返回原始 GDI HDC（虽然标记为 deprecated，但
-        # GetHandle() 返回的不是 HDC 而是 wx 内部句柄，无法用于 GDI API）
-        # ctypes argtypes 已设为 wintypes.HDC，64 位句柄可安全传递
 
         try:
             src_dc = _gdi32.CreateCompatibleDC(hdc_screen)
@@ -368,21 +345,17 @@ class OverlayWindow(wx.Frame):
             import traceback
             traceback.print_exc()
         finally:
-            # ScreenDC 在 wxPython 4.2+ 中无 ReleaseHDC，
-            # HDC 随 ScreenDC 对象销毁自动释放
             del screen_dc
 
     # ── 绘制 ────────────────────────────────────────────────────────
 
-    def _get_font(self) -> wx.Font:
-        """获取缓存字体"""
-        if self._cached_font is None:
-            self._cached_font = wx.Font(
-                self._font_size, wx.FONTFAMILY_DEFAULT,
-                wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL,
-                faceName=self._font_family,
-            )
-        return self._cached_font
+    def _create_font(self) -> wx.Font:
+        """创建字体"""
+        return wx.Font(
+            self._font_size, wx.FONTFAMILY_DEFAULT,
+            wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL,
+            faceName=self._font_family,
+        )
 
     def _draw_item(self, gc: wx.GraphicsContext, item: OverlayItem):
         """绘制单个文本项：先填充不透明背景遮盖原文，再绘制译文

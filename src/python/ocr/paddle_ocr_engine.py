@@ -53,8 +53,6 @@ class PaddleOcrEngine:
 
     特性：
     - 支持PNG/JPG/BMP等图像格式
-    - 自动处理深色背景反色
-    - 可选的图像预处理（去噪、增强）
     - 完整的检测+识别流水线
     """
 
@@ -67,11 +65,6 @@ class PaddleOcrEngine:
         """
         self._config = config
         self._ocr_cfg = config.ocr
-
-        # 预处理开关
-        self._det_invert_dark = config.ocr.det_invert_dark
-        self._det_denoise = config.ocr.det_denoise
-        self._rec_enhance = config.ocr.rec_enhance
 
         # 置信度阈值
         self._min_confidence = config.ocr.min_confidence
@@ -160,13 +153,10 @@ class PaddleOcrEngine:
 
         start_time = time.perf_counter()
 
-        # 图像预处理
-        processed_img = self._preprocess_image(img)
-
         # 执行OCR
         try:
             # PaddleOCR期望RGB图像
-            rgb_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
+            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
             # 调用PaddleOCR predict()（新版API）—— 计时
             predict_start = time.perf_counter()
@@ -278,40 +268,6 @@ class PaddleOcrEngine:
 
         # 执行OCR
         return self.process(img)
-
-    def _preprocess_image(self, img: np.ndarray) -> np.ndarray:
-        """
-        图像预处理
-
-        Args:
-            img: 原始BGR图像
-
-        Returns:
-            预处理后的图像
-        """
-        processed = img.copy()
-
-        # 可选：深色背景反色
-        if self._det_invert_dark:
-            gray = cv2.cvtColor(processed, cv2.COLOR_BGR2GRAY)
-            mean_brightness = np.mean(gray)
-            if mean_brightness < 100:
-                processed = cv2.bitwise_not(processed)
-                print(f"[OCR] Dark background detected (brightness={mean_brightness:.1f}), inverting colors")
-
-        # 可选：去噪
-        if self._det_denoise:
-            processed = cv2.GaussianBlur(processed, (3, 3), 0)
-
-        # 可选：CLAHE对比度增强
-        if self._rec_enhance:
-            lab = cv2.cvtColor(processed, cv2.COLOR_BGR2LAB)
-            l, a, b = cv2.split(lab)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            l = clahe.apply(l)
-            processed = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
-
-        return processed
 
     def shutdown(self):
         """释放资源"""

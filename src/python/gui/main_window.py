@@ -2,13 +2,11 @@
 gui/main_window.py — wxPython GUI 主窗口 (Modern UI)
 
 Modern flat-design control panel with:
-- Tabbed notebook layout (Control / OCR / Translator / Overlay / Capture / Hotkeys / Logging / Results)
+- Tabbed notebook layout (Control / OCR / Translator / Overlay / Hotkeys / Logging / Results)
 - Unicode icon buttons with colored accents
 - Custom ToggleSwitch widgets
 - Dark-themed live result panel
 - Persistent status bar
-
-All public API and business logic preserved from the original implementation.
 """
 import wx
 import wx.adv
@@ -234,14 +232,6 @@ class MainWindow(wx.Frame):
     def __init__(
         self,
         config: AppConfig,
-        on_toggle_pause: Callable[[], None],
-        on_start: Callable[[], None],
-        on_stop: Callable[[], None],
-        on_single_translate: Optional[Callable[[], None]] = None,
-        on_single_start: Optional[Callable[[], None]] = None,
-        on_single_done: Optional[Callable[[], None]] = None,
-        on_ocr_result: Optional[Callable[[int, list, float, float], None]] = None,
-        on_translation_result: Optional[Callable[[int, list, float], None]] = None,
         on_region_translate: Optional[Callable[[], None]] = None,
         on_clear_overlay: Optional[Callable[[], None]] = None,
         on_region_start: Optional[Callable[[], None]] = None,
@@ -249,23 +239,13 @@ class MainWindow(wx.Frame):
     ):
         super().__init__(None, title=tr("app.title"), size=(520, 660))
         self._config = config
-        self._on_toggle = on_toggle_pause
-        self._on_start = on_start
-        self._on_stop = on_stop
-        self._on_single = on_single_translate
-        self._on_single_start = on_single_start
-        self._on_single_done = on_single_done
-        self._on_ocr = on_ocr_result
-        self._on_trans = on_translation_result
         self._on_region = on_region_translate
         self._on_clear = on_clear_overlay
         self._on_region_start = on_region_start
         self._on_region_done = on_region_done
 
         # State
-        self._single_in_progress = False
         self._region_in_progress = False
-        self._pipeline_running = False
 
         # Dynamic labels registry (for language switching)
         self._dynamic_labels: list[tuple[wx.Control, str, dict]] = []
@@ -299,38 +279,21 @@ class MainWindow(wx.Frame):
 
         # Tab labels
         for i, key in enumerate(["tab.control", "tab.ocr", "tab.translator",
-                                  "tab.overlay", "tab.capture", "tab.hotkeys",
+                                  "tab.overlay", "tab.hotkeys",
                                   "tab.logging", "tab.result"]):
             if i < self._notebook.GetPageCount():
                 self._notebook.SetPageText(i, tr(key))
 
         # Core buttons
-        self._btn_start.SetLabel(tr("btn.start"))
-        self._btn_single.SetLabel(tr("btn.single"))
-        self._btn_single.SetToolTip(tr("tooltip.single"))
         self._btn_region.SetLabel(tr("btn.region_translate"))
         self._btn_region.SetToolTip(tr("tooltip.region"))
         self._btn_clear.SetLabel(tr("btn.clear_overlay"))
         self._btn_clear.SetToolTip(tr("tooltip.clear_overlay"))
-        if self._btn_pause.IsEnabled() and self._btn_pause.GetLabel() == tr("btn.resume"):
-            self._btn_pause.SetLabel(tr("btn.resume"))
-        else:
-            self._btn_pause.SetLabel(tr("btn.pause"))
-        self._btn_stop.SetLabel(tr("btn.stop"))
         self._btn_test_url.SetLabel(tr("btn.test"))
         self._btn_apply_hotkeys.SetLabel(tr("btn.apply_hotkeys"))
 
         # Toggle labels
-        self._tb_diff.SetLabel(tr("cb.diff_detection"))
-        self._tb_invert.SetLabel(tr("cb.invert_dark"))
-        self._tb_denoise.SetLabel(tr("cb.denoise"))
-        self._tb_enhance.SetLabel(tr("cb.enhance"))
-        self._tb_exclude.SetLabel(tr("cb.exclude_capture"))
         self._tb_log.SetLabel(tr("cb.logging"))
-
-        # Diff / Downscale buttons
-        self._update_diff_button_label()
-        self._update_downscale_button_label()
 
         # Dynamic labels
         for ctrl, key, kwargs in self._dynamic_labels:
@@ -352,18 +315,6 @@ class MainWindow(wx.Frame):
         self._status_dot.SetState("stopped")
         self._status_text.SetLabel(tr("status.ready"))
         self.Layout()
-
-    def _update_diff_button_label(self):
-        if self._config.pipeline.diff_detection:
-            self._btn_diff.SetLabel(tr("diff.on"))
-        else:
-            self._btn_diff.SetLabel(tr("diff.off"))
-
-    def _update_downscale_button_label(self):
-        if self._config.pipeline.downscale_max_size > 0:
-            self._btn_downscale.SetLabel(tr("downscale.on"))
-        else:
-            self._btn_downscale.SetLabel(tr("downscale.off"))
 
     # ── UI Construction ────────────────────────────────────────────
 
@@ -415,7 +366,6 @@ class MainWindow(wx.Frame):
         self._build_ocr_tab(cfg)
         self._build_translator_tab(cfg)
         self._build_overlay_tab(cfg)
-        self._build_capture_tab(cfg)
         self._build_hotkeys_tab(cfg)
         self._build_logging_tab(cfg)
         self._build_result_tab()
@@ -433,19 +383,6 @@ class MainWindow(wx.Frame):
         panel.SetBackgroundColour(BG_PAGE)
         return panel
 
-    def _card_sizer(self, parent_sz):
-        """Add a white card to a sizer. Returns the card's inner sizer."""
-        # We approximate cards with a white-background panel and border
-        card_sz = wx.BoxSizer(wx.VERTICAL)
-        parent_sz.Add(card_sz, 0, wx.EXPAND | wx.ALL, 8)
-        return card_sz
-
-    def _card_sep(self, sizer):
-        """Add a light separator line between card rows."""
-        line = wx.Panel(sizer.GetContainingWindow(), size=(-1, 1))
-        line.SetBackgroundColour(BORDER)
-        sizer.Add(line, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 4)
-
     # ── Tab: Control ───────────────────────────────────────────────
 
     def _build_control_tab(self, cfg):
@@ -455,35 +392,6 @@ class MainWindow(wx.Frame):
 
         sz = wx.BoxSizer(wx.VERTICAL)
         outer_pad = 12
-
-        # ── Action Buttons ──
-        btn_card = wx.Panel(page)
-        btn_card.SetBackgroundColour(WHITE)
-        btn_sz = wx.BoxSizer(wx.HORIZONTAL)
-
-        self._btn_start = _make_btn(btn_card, tr("btn.start"), PRIMARY, (95, 38))
-        self._btn_start.Bind(wx.EVT_BUTTON, lambda e: self._on_start())
-        btn_sz.Add(self._btn_start, 0, wx.RIGHT, 5)
-
-        self._btn_single = _make_btn(btn_card, tr("btn.single"), size=(95, 38))
-        self._btn_single.SetToolTip(tr("tooltip.single"))
-        self._btn_single.Bind(wx.EVT_BUTTON, lambda e: self._on_single() if self._on_single else None)
-        btn_sz.Add(self._btn_single, 0, wx.RIGHT, 5)
-
-        self._btn_pause = _make_btn(btn_card, tr("btn.pause"), size=(95, 38))
-        self._btn_pause.Bind(wx.EVT_BUTTON, lambda e: self._on_toggle())
-        self._btn_pause.Enable(False)
-        btn_sz.Add(self._btn_pause, 0, wx.RIGHT, 5)
-
-        self._btn_stop = _make_btn(btn_card, tr("btn.stop"), DANGER, (95, 38))
-        self._btn_stop.Bind(wx.EVT_BUTTON, lambda e: self._on_stop())
-        self._btn_stop.Enable(False)
-        btn_sz.Add(self._btn_stop, 0)
-
-        btn_card.SetSizer(wx.BoxSizer(wx.VERTICAL))
-        btn_card.GetSizer().Add(btn_sz, 0, wx.ALL, 12)
-        sz.Add(btn_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
-        sz.AddSpacer(8)
 
         # ── Region & Clear Buttons ──
         rc_card = wx.Panel(page)
@@ -503,35 +411,6 @@ class MainWindow(wx.Frame):
         rc_card.SetSizer(wx.BoxSizer(wx.VERTICAL))
         rc_card.GetSizer().Add(rc_btn_sz, 0, wx.ALL, 12)
         sz.Add(rc_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
-        sz.AddSpacer(8)
-
-        # ── Quick Toggles Card ──
-        toggle_card = wx.Panel(page)
-        toggle_card.SetBackgroundColour(WHITE)
-        tc_sz = wx.BoxSizer(wx.VERTICAL)
-
-        diff_on = cfg.pipeline.diff_detection
-        self._btn_diff = wx.Button(toggle_card,
-                                    label=tr("diff.on") if diff_on else tr("diff.off"),
-                                    size=(-1, 34))
-        self._btn_diff.SetBackgroundColour(BTN_DEFAULT)
-        self._btn_diff.SetForegroundColour(TEXT_MAIN)
-        self._btn_diff.SetWindowStyleFlag(wx.BORDER_NONE)
-        self._btn_diff.Bind(wx.EVT_BUTTON, lambda e: self._on_diff_detection_button())
-        tc_sz.Add(self._btn_diff, 0, wx.EXPAND | wx.ALL, 6)
-
-        downscale_on = cfg.pipeline.downscale_max_size > 0
-        self._btn_downscale = wx.Button(toggle_card,
-                                         label=tr("downscale.on") if downscale_on else tr("downscale.off"),
-                                         size=(-1, 34))
-        self._btn_downscale.SetBackgroundColour(BTN_DEFAULT)
-        self._btn_downscale.SetForegroundColour(TEXT_MAIN)
-        self._btn_downscale.SetWindowStyleFlag(wx.BORDER_NONE)
-        self._btn_downscale.Bind(wx.EVT_BUTTON, lambda e: self._on_downscale_button())
-        tc_sz.Add(self._btn_downscale, 0, wx.EXPAND | wx.ALL, 6)
-
-        toggle_card.SetSizer(tc_sz)
-        sz.Add(toggle_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
         sz.AddSpacer(8)
 
         # ── Settings Card ──
@@ -562,24 +441,12 @@ class MainWindow(wx.Frame):
         sc_sz.Add(lang_row, 0, wx.ALL, 10)
 
         # Pipeline params
-        pipe_row1 = wx.BoxSizer(wx.HORIZONTAL)
+        pipe_row = wx.BoxSizer(wx.HORIZONTAL)
         self._interval_input, isz = _make_float_input(set_card, tr("field.cycle_interval"), cfg.pipeline.cycle_interval)
-        pipe_row1.Add(isz, 0, wx.RIGHT, 16)
-        self._diff_thresh_input, dsz = _make_float_input(set_card, tr("field.diff_threshold"), cfg.pipeline.diff_threshold)
-        pipe_row1.Add(dsz, 0)
-        sc_sz.Add(pipe_row1, 0, wx.ALL, 10)
-
-        pipe_row2 = wx.BoxSizer(wx.HORIZONTAL)
+        pipe_row.Add(isz, 0, wx.RIGHT, 16)
         self._max_boxes_input, msz = _make_int_input(set_card, tr("field.max_text_boxes"), cfg.pipeline.max_text_boxes)
-        pipe_row2.Add(msz, 0)
-        sc_sz.Add(pipe_row2, 0, wx.ALL, 10)
-
-        # Diff detection toggle
-        self._tb_diff = ToggleSwitch(set_card, label=tr("cb.diff_detection"))
-        self._tb_diff.SetValue(cfg.pipeline.diff_detection)
-        self._tb_diff.Bind(wx.EVT_CHECKBOX, self._on_diff_detection_toggle)
-        self._toggles.append(self._tb_diff)
-        sc_sz.Add(self._tb_diff, 0, wx.ALL, 10)
+        pipe_row.Add(msz, 0)
+        sc_sz.Add(pipe_row, 0, wx.ALL, 10)
 
         set_card.SetSizer(sc_sz)
         sz.Add(set_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
@@ -644,25 +511,6 @@ class MainWindow(wx.Frame):
         self._min_conf_input, mcs = _make_float_input(card, tr("field.min_confidence"), cfg.ocr.min_confidence)
         row2.Add(mcs, 0)
         cs.Add(row2, 0, wx.ALL, 10)
-
-        # Preproc toggles
-        self._tb_invert = ToggleSwitch(card, label=tr("cb.invert_dark"))
-        self._tb_invert.SetValue(cfg.ocr.det_invert_dark)
-        self._tb_invert.Bind(wx.EVT_CHECKBOX, self._on_ocr_preproc_toggle)
-        self._toggles.append(self._tb_invert)
-        cs.Add(self._tb_invert, 0, wx.ALL, 10)
-
-        self._tb_denoise = ToggleSwitch(card, label=tr("cb.denoise"))
-        self._tb_denoise.SetValue(cfg.ocr.det_denoise)
-        self._tb_denoise.Bind(wx.EVT_CHECKBOX, self._on_ocr_preproc_toggle)
-        self._toggles.append(self._tb_denoise)
-        cs.Add(self._tb_denoise, 0, wx.ALL, 10)
-
-        self._tb_enhance = ToggleSwitch(card, label=tr("cb.enhance"))
-        self._tb_enhance.SetValue(cfg.ocr.rec_enhance)
-        self._tb_enhance.Bind(wx.EVT_CHECKBOX, self._on_ocr_preproc_toggle)
-        self._toggles.append(self._tb_enhance)
-        cs.Add(self._tb_enhance, 0, wx.ALL, 10)
 
         card.SetSizer(cs)
         sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
@@ -745,39 +593,6 @@ class MainWindow(wx.Frame):
         row2.Add(tcs, 0)
         cs.Add(row2, 0, wx.ALL, 10)
 
-        self._tb_exclude = ToggleSwitch(card, label=tr("cb.exclude_capture"))
-        self._tb_exclude.SetValue(cfg.overlay.exclude_from_capture)
-        self._tb_exclude.Bind(wx.EVT_CHECKBOX, self._on_exclude_cap_toggle)
-        self._toggles.append(self._tb_exclude)
-        cs.Add(self._tb_exclude, 0, wx.ALL, 10)
-
-        card.SetSizer(cs)
-        sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
-        page.SetSizer(sz)
-
-    # ── Tab: Capture ───────────────────────────────────────────────
-
-    def _build_capture_tab(self, cfg):
-        page = wx.Panel(self._notebook)
-        page.SetBackgroundColour(BG_PAGE)
-        self._notebook.AddPage(page, tr("tab.capture"))
-
-        sz = wx.BoxSizer(wx.VERTICAL)
-        outer_pad = 12
-
-        card = wx.Panel(page)
-        card.SetBackgroundColour(WHITE)
-        cs = wx.BoxSizer(wx.VERTICAL)
-
-        row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self._backend_input, bes = _make_labeled_input(card, tr("field.backend"), cfg.capture.backend, size=(90, -1))
-        row1.Add(bes, 0, wx.RIGHT, 16)
-        self._cam_index_input, cis = _make_int_input(card, tr("field.camera_index"), cfg.capture.camera_index)
-        row1.Add(cis, 0, wx.RIGHT, 16)
-        self._fps_input, fps = _make_int_input(card, tr("field.fps"), cfg.capture.fps)
-        row1.Add(fps, 0)
-        cs.Add(row1, 0, wx.ALL, 10)
-
         card.SetSizer(cs)
         sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
         page.SetSizer(sz)
@@ -796,28 +611,18 @@ class MainWindow(wx.Frame):
         card.SetBackgroundColour(WHITE)
         cs = wx.BoxSizer(wx.VERTICAL)
 
-        # Row 1: Single, Pause, Quit
+        # Row: Region Translate, Clear Overlay, Quit
         hk_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._hotkey_single_input, hss = _make_labeled_input(card, tr("field.hotkey_single"),
-                                                              cfg.gui.hotkey_single_translate, size=(70, -1))
-        hk_row.Add(hss, 0, wx.RIGHT, 10)
-        self._hotkey_pause_input, hps = _make_labeled_input(card, tr("field.hotkey_pause"),
-                                                             cfg.gui.hotkey_pause, size=(70, -1))
-        hk_row.Add(hps, 0, wx.RIGHT, 10)
+        self._hotkey_region_input, hrs = _make_labeled_input(card, tr("field.hotkey_region"),
+                                                              cfg.gui.hotkey_region_translate, size=(70, -1))
+        hk_row.Add(hrs, 0, wx.RIGHT, 10)
+        self._hotkey_clear_input, hcs = _make_labeled_input(card, tr("field.hotkey_clear"),
+                                                             cfg.gui.hotkey_clear_overlay, size=(70, -1))
+        hk_row.Add(hcs, 0, wx.RIGHT, 10)
         self._hotkey_quit_input, hqs = _make_labeled_input(card, tr("field.hotkey_quit"),
                                                             cfg.gui.hotkey_quit, size=(70, -1))
         hk_row.Add(hqs, 0)
         cs.Add(hk_row, 0, wx.ALL, 10)
-
-        # Row 2: Region Translate, Clear Overlay
-        hk_row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self._hotkey_region_input, hrs = _make_labeled_input(card, tr("field.hotkey_region"),
-                                                              cfg.gui.hotkey_region_translate, size=(70, -1))
-        hk_row2.Add(hrs, 0, wx.RIGHT, 10)
-        self._hotkey_clear_input, hcs = _make_labeled_input(card, tr("field.hotkey_clear"),
-                                                             cfg.gui.hotkey_clear_overlay, size=(70, -1))
-        hk_row2.Add(hcs, 0)
-        cs.Add(hk_row2, 0, wx.ALL, 10)
 
         btn_row = wx.BoxSizer(wx.HORIZONTAL)
         self._btn_apply_hotkeys = _make_btn(card, tr("btn.apply_hotkeys"), PRIMARY, (130, 32))
@@ -906,10 +711,8 @@ class MainWindow(wx.Frame):
     def _make_hotkey_label_text(self) -> str:
         cfg = self._config.gui
         return tr("hotkey.label",
-                  single=cfg.hotkey_single_translate,
                   region=cfg.hotkey_region_translate,
                   clear=cfg.hotkey_clear_overlay,
-                  pause=cfg.hotkey_pause,
                   quit=cfg.hotkey_quit)
 
     def _refresh_hotkey_label(self):
@@ -926,10 +729,7 @@ class MainWindow(wx.Frame):
             import keyboard
             cfg = self._config.gui
             for hotkey_str, callback in [
-                (cfg.hotkey_pause, lambda: wx.CallAfter(self._on_toggle)),
-                (cfg.hotkey_quit, lambda: wx.CallAfter(self._on_stop)),
-                (cfg.hotkey_single_translate,
-                 lambda: wx.CallAfter(self._on_single) if self._on_single else None),
+                (cfg.hotkey_quit, lambda: wx.CallAfter(self.Close)),
                 (cfg.hotkey_region_translate,
                  lambda: wx.CallAfter(self._on_region) if self._on_region else None),
                 (cfg.hotkey_clear_overlay,
@@ -949,33 +749,29 @@ class MainWindow(wx.Frame):
         self._hotkey_handlers.clear()
 
     def _apply_hotkeys(self):
-        new_single = self._hotkey_single_input.GetValue().strip()
-        new_pause = self._hotkey_pause_input.GetValue().strip()
-        new_quit = self._hotkey_quit_input.GetValue().strip()
         new_region = self._hotkey_region_input.GetValue().strip()
         new_clear = self._hotkey_clear_input.GetValue().strip()
+        new_quit = self._hotkey_quit_input.GetValue().strip()
 
-        if not new_single or not new_pause or not new_quit or not new_region or not new_clear:
+        if not new_region or not new_clear or not new_quit:
             wx.MessageBox(tr("dlg.hotkey_empty"), tr("dlg.hotkey_invalid_title"),
                           wx.OK | wx.ICON_WARNING)
             return
-        if len({new_single, new_pause, new_quit, new_region, new_clear}) < 5:
+        if len({new_region, new_clear, new_quit}) < 3:
             wx.MessageBox(tr("dlg.hotkey_duplicate"), tr("dlg.hotkey_invalid_title"),
                           wx.OK | wx.ICON_WARNING)
             return
 
         cfg = self._config.gui
-        cfg.hotkey_single_translate = new_single
-        cfg.hotkey_pause = new_pause
-        cfg.hotkey_quit = new_quit
         cfg.hotkey_region_translate = new_region
+        cfg.hotkey_quit = new_quit
         cfg.hotkey_clear_overlay = new_clear
 
         self._unbind_hotkeys()
         self._register_hotkeys()
         self._refresh_hotkey_label()
-        print(f"[GUI] Hotkeys applied: single={new_single}, pause={new_pause}, "
-              f"quit={new_quit}, region={new_region}, clear={new_clear}")
+        print(f"[GUI] Hotkeys applied: region={new_region}, "
+              f"clear={new_clear}, quit={new_quit}")
 
     # ── URL Test ───────────────────────────────────────────────────
 
@@ -1026,30 +822,8 @@ class MainWindow(wx.Frame):
 
     def update_status(self, status: str):
         def _update():
-            status_map = {
-                "Ready": tr("status.ready"),
-                "Running": tr("status.running"),
-                "Paused": tr("status.paused"),
-                "Stopped": tr("status.stopped"),
-                "Initializing...": tr("status.initializing"),
-            }
-
-            if status.startswith("Single:"):
-                if status == "Single: initializing...":
-                    disp = tr("status.single_init")
-                elif status == "Single: capturing...":
-                    disp = tr("status.single_capturing")
-                elif status == "Single: done":
-                    disp = tr("status.single_done")
-                    self._single_in_progress = False
-                elif status.startswith("Single: error:"):
-                    error = status[len("Single: error:"):].strip()
-                    disp = tr("status.single_error", error=error)
-                    self._single_in_progress = False
-                elif status == "Single: init failed":
-                    disp = tr("status.single_init_failed")
-                    self._single_in_progress = False
-                elif status == "Region: initializing...":
+            if status.startswith("Region:"):
+                if status == "Region: initializing...":
                     disp = tr("status.region_init")
                 elif status == "Region: capturing...":
                     disp = tr("status.region_capturing")
@@ -1070,32 +844,20 @@ class MainWindow(wx.Frame):
                 else:
                     disp = status
                 self._status_text.SetLabel(disp)
+            elif status == "Ready":
+                self._status_text.SetLabel(tr("status.ready"))
+                self._status_dot.SetState("stopped")
+            elif status == "Initializing...":
+                self._status_text.SetLabel(tr("status.initializing"))
             elif status.startswith("Error:"):
                 error = status[len("Error:"):].strip()
                 disp = tr("status.error", error=error)
                 self._status_text.SetLabel(disp)
             elif status.startswith("Warning:"):
                 self._status_text.SetLabel(status)
-            elif status in status_map:
-                self._status_text.SetLabel(status_map[status])
             else:
                 self._status_text.SetLabel(status)
 
-            is_running = status in ("Running", "Paused")
-            self._pipeline_running = is_running
-            self._btn_start.Enable(not is_running)
-            self._btn_pause.Enable(is_running)
-            self._btn_stop.Enable(is_running)
-            if status == "Paused":
-                self._btn_pause.SetLabel(tr("btn.resume"))
-                self._status_dot.SetState("paused")
-            elif status == "Running":
-                self._btn_pause.SetLabel(tr("btn.pause"))
-                self._status_dot.SetState("running")
-            else:
-                self._status_dot.SetState("stopped")
-
-            self._btn_single.Enable(not self._single_in_progress)
             self._btn_region.Enable(not self._region_in_progress)
         wx.CallAfter(_update)
 
@@ -1175,8 +937,6 @@ class MainWindow(wx.Frame):
 
         try: cfg.pipeline.cycle_interval = float(self._interval_input.GetValue())
         except ValueError: pass
-        try: cfg.pipeline.diff_threshold = float(self._diff_thresh_input.GetValue())
-        except ValueError: pass
         try: cfg.pipeline.max_text_boxes = int(self._max_boxes_input.GetValue())
         except ValueError: pass
 
@@ -1193,9 +953,6 @@ class MainWindow(wx.Frame):
         except ValueError: pass
         try: cfg.ocr.min_confidence = float(self._min_conf_input.GetValue())
         except ValueError: pass
-        cfg.ocr.det_invert_dark = self._tb_invert.GetValue()
-        cfg.ocr.det_denoise = self._tb_denoise.GetValue()
-        cfg.ocr.rec_enhance = self._tb_enhance.GetValue()
 
         ll = cfg.translator.llama
         try: ll.timeout = int(self._timeout_input.GetValue())
@@ -1221,20 +978,11 @@ class MainWindow(wx.Frame):
         cfg.overlay.text_color = self._text_color_input.GetValue().strip()
         try: cfg.overlay.background_opacity = float(self._bg_opacity_input.GetValue())
         except ValueError: pass
-        cfg.overlay.exclude_from_capture = self._tb_exclude.GetValue()
 
-        cfg.capture.backend = self._backend_input.GetValue().strip()
-        try: cfg.capture.camera_index = int(self._cam_index_input.GetValue())
-        except ValueError: pass
-        try: cfg.capture.fps = int(self._fps_input.GetValue())
-        except ValueError: pass
-
-        if hasattr(self, '_hotkey_single_input'):
-            cfg.gui.hotkey_single_translate = self._hotkey_single_input.GetValue().strip()
-            cfg.gui.hotkey_pause = self._hotkey_pause_input.GetValue().strip()
-            cfg.gui.hotkey_quit = self._hotkey_quit_input.GetValue().strip()
+        if hasattr(self, '_hotkey_region_input'):
             cfg.gui.hotkey_region_translate = self._hotkey_region_input.GetValue().strip()
             cfg.gui.hotkey_clear_overlay = self._hotkey_clear_input.GetValue().strip()
+            cfg.gui.hotkey_quit = self._hotkey_quit_input.GetValue().strip()
 
         cfg.gui.ui_language = self._locale.lang
 
@@ -1246,40 +994,10 @@ class MainWindow(wx.Frame):
     def get_langs(self) -> tuple[str, str]:
         return self._src_lang.GetValue(), self._tgt_lang.GetValue()
 
-    def get_interval(self) -> float:
-        try: return float(self._interval_input.GetValue())
-        except ValueError: return 5.0
-
-    # ── Toggle / Checkbox Callbacks ────────────────────────────────
-
-    def _on_diff_detection_button(self):
-        current = self._config.pipeline.diff_detection
-        new_state = not current
-        self._config.pipeline.diff_detection = new_state
-        self._tb_diff.SetValue(new_state)
-        self._update_diff_button_label()
-
-    def _on_diff_detection_toggle(self, event):
-        self._config.pipeline.diff_detection = self._tb_diff.GetValue()
-        self._update_diff_button_label()
-
-    def _on_downscale_button(self):
-        current = self._config.pipeline.downscale_max_size > 0
-        new_state = not current
-        self._config.pipeline.downscale_max_size = 720 if new_state else 0
-        self._update_downscale_button_label()
-
-    def _on_exclude_cap_toggle(self, event):
-        self._config.overlay.exclude_from_capture = self._tb_exclude.GetValue()
+    # ── Toggle Callbacks ───────────────────────────────────────────
 
     def _on_logging_toggle(self, event):
         self._config.logging.enabled = self._tb_log.GetValue()
-
-    def _on_ocr_preproc_toggle(self, event):
-        cfg = self._config.ocr
-        cfg.det_invert_dark = self._tb_invert.GetValue()
-        cfg.det_denoise = self._tb_denoise.GetValue()
-        cfg.rec_enhance = self._tb_enhance.GetValue()
 
     def _ocr_engine_from_selection(self) -> str:
         idx = self._ocr_engine_choice.GetSelection()
@@ -1287,7 +1005,6 @@ class MainWindow(wx.Frame):
 
     def _on_ocr_engine_changed(self, event):
         engine = self._ocr_engine_from_selection()
-        old_engine = self._config.ocr.engine
         self._config.ocr.engine = engine
 
         # Show/hide EasyOCR language row
@@ -1296,16 +1013,6 @@ class MainWindow(wx.Frame):
         else:
             self._easyocr_row.ShowItems(False)
         self._easyocr_row.GetContainingSizer().Layout()
-
-        if engine != old_engine:
-            if self._pipeline_running:
-                self._on_stop()
-                print(f"[GUI] Pipeline restarting with engine: {engine}")
-                wx.CallLater(600, self._on_start)
-            else:
-                print(f"[GUI] Initializing engine: {engine} (pipeline not running)")
-                self._on_start()
-                wx.CallLater(400, self._on_stop)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1352,7 +1059,7 @@ class _StatusDot(wx.Panel):
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  TrayIcon (unchanged from original)
+#  TrayIcon
 # ═══════════════════════════════════════════════════════════════════
 
 class TrayIcon(wx.adv.TaskBarIcon):
