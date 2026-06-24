@@ -168,6 +168,49 @@ class Pipeline:
 
         threading.Thread(target=_single_shot, daemon=True).start()
 
+    def run_region_translate(
+        self, frame: np.ndarray, region_left: int, region_top: int,
+        on_start=None, on_done=None,
+    ):
+        """执行划屏翻译（在后台线程中运行）
+
+        使用屏幕截图代替摄像头帧，OCR + 翻译后将结果
+        覆盖回原始屏幕区域。
+
+        Args:
+            frame: BGR numpy array — 从屏幕截取的区域图像
+            region_left: 截图区域在屏幕上的左边界 x 坐标
+            region_top: 截图区域在屏幕上的上边界 y 坐标
+            on_start: 开始时的回调
+            on_done: 完成时的回调
+        """
+        if not hasattr(self, '_region_translate_running'):
+            self._region_translate_running = False
+
+        if self._region_translate_running:
+            return  # 划屏翻译已在执行中
+
+        def _region_shot():
+            self._region_translate_running = True
+            if on_start:
+                on_start()
+            try:
+                self._on_status("Region: initializing...")
+                if not self.init():
+                    self._on_status("Region: init failed")
+                    return
+                self._on_status("Region: capturing...")
+                self._execute_region_cycle(frame, region_left, region_top)
+                self._on_status("Region: done")
+            except Exception as e:
+                self._on_status(f"Region: error: {e}")
+            finally:
+                self._region_translate_running = False
+                if on_done:
+                    on_done()
+
+        threading.Thread(target=_region_shot, daemon=True).start()
+
     @property
     def is_paused(self) -> bool:
         return self._paused
@@ -379,6 +422,162 @@ class Pipeline:
         cycle_log.overlay_ms = timer.elapsed_ms()
 
         # ── 6. 日志 ─
+        cycle_log.total_ms = (
+            cycle_log.capture_ms + cycle_log.ocr_det_ms +
+            cycle_log.ocr_rec_ms + cycle_log.translate_ms +
+            cycle_log.overlay_ms
+        )
+        self._logger.write_cycle(cycle_log)
+        self._on_cycle(cycle_log)
+
+    def _execute_region_cycle(self, frame: np.ndarray, region_left: int, region_top: int):
+        """执行划屏翻译周期 — 对屏幕截取的区域进行 OCR + 翻译 + 原位覆盖
+
+        与 _execute_cycle_impl 的区别：
+        - 跳过摄像头采集步骤，直接使用传入的截屏帧
+        - 覆盖层坐标 = region_offset + 文本框在区域内的相对坐标
+        - 不进行差异检测
+        """
+        with self._lock:
+            self._execute_region_cycle_impl(frame, region_left, region_top)
+
+    def _execute_region_cycle_impl(self, frame: np.ndarray, region_left: int, region_top: int):
+        """划屏翻译周期内部实现（调用方负责加锁）"""
+        cycle_log = self._logger.new_cycle()
+        timer = Timer()
+        cycle_log.capture_ms = 0.0  # 区域截图在上层完成
+
+        if frame is None:
+            cycle_log.skipped = True
+            cycle_log.skip_reason = "no_frame"
+            self._logger.write_cycle(cycle_log)
+            return
+
+        # ── 1. OCR ──
+        timer.start()
+        orig_h, orig_w = frame.shape[:2]
+        scale_factor = 1.0
+        max_size = self._config.pipeline.downscale_max_size
+        if max_size > 0 and max(orig_w, orig_h) > max_size:
+            scale_factor = max_size / max(orig_w, orig_h)
+            new_w = int(orig_w * scale_factor)
+            new_h = int(orig_h * scale_factor)
+            ocr_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        else:
+            ocr_frame = frame
+
+        ocr_result = self._ocr.process(ocr_frame) if self._ocr else OcrOutput(boxes=[])
+        ocr_total_ms = timer.elapsed_ms()
+        cycle_log.ocr_det_ms = ocr_total_ms
+        cycle_log.ocr_rec_ms = 0.0
+
+        boxes = ocr_result.boxes[:self._config.pipeline.max_text_boxes]
+
+        # 将 OCR 坐标还原到原始图像空间
+        if scale_factor < 1.0:
+            inv_scale = 1.0 / scale_factor
+            for box in boxes:
+                box.points = [
+                    (p[0] * inv_scale, p[1] * inv_scale) for p in box.points
+                ]
+
+        # 过滤无意义的文本片段
+        boxes = self._filter_meaningless_boxes(boxes)
+
+        if self._logger:
+            self._logger.write_ocr_result(
+                cycle_log.cycle_id, boxes, ocr_total_ms, 0.0,
+            )
+        self._on_ocr(cycle_log.cycle_id, boxes, ocr_total_ms, 0.0)
+
+        if not boxes:
+            cycle_log.skipped = True
+            cycle_log.skip_reason = "no_text"
+            self._overlay.set_items([])
+            self._logger.write_cycle(cycle_log)
+            return
+
+        # ── 2. 翻译 ──
+        timer.start()
+        texts = [tb.text for tb in boxes]
+        to_translate = []
+        cache_hits = {}
+        for i, text in enumerate(texts):
+            if text in self._translation_cache:
+                cache_hits[i] = self._translation_cache[text]
+            else:
+                to_translate.append((i, text))
+
+        translations: list[TranslationResult] = [None] * len(texts)
+
+        if to_translate:
+            batch_texts = [t for _, t in to_translate]
+            batch_results = self._translator.translate_batch(
+                batch_texts,
+                self._config.source_lang,
+                self._config.target_lang,
+                parallel=self._config.translator.llama.parallel_requests,
+            )
+            for j, (orig_idx, orig_text) in enumerate(to_translate):
+                translations[orig_idx] = batch_results[j]
+                if batch_results[j].status == "ok":
+                    self._translation_cache[orig_text] = batch_results[j].text
+
+        for i, cached_text in cache_hits.items():
+            translations[i] = TranslationResult(
+                text=cached_text, original=texts[i], status="ok",
+            )
+
+        cycle_log.translate_ms = timer.elapsed_ms()
+
+        if self._logger:
+            trans_pairs = [
+                (tb.text, (translations[i].text if translations[i] else ""),
+                 (translations[i].status if translations[i] else "error"))
+                for i, tb in enumerate(boxes)
+            ]
+            self._logger.write_translation_result(
+                cycle_log.cycle_id, trans_pairs, cycle_log.translate_ms,
+            )
+        trans_pairs_gui = [
+            (tb.text, (translations[i].text if translations[i] else ""),
+             (translations[i].status if translations[i] else "error"))
+            for i, tb in enumerate(boxes)
+        ]
+        self._on_trans(cycle_log.cycle_id, trans_pairs_gui, cycle_log.translate_ms)
+
+        # ── 3. 覆盖层 — 坐标加上区域在屏幕上的偏移量 ──
+        timer.start()
+
+        overlay_items = []
+        for i, (tb, trans_result) in enumerate(zip(boxes, translations)):
+            x, y, w, h = tb.bounding_rect
+            translated_text = trans_result.text if trans_result else tb.text
+            status = trans_result.status if trans_result else "error"
+
+            # 关键：覆盖层坐标 = 区域原点 + 文本框在区域内的相对坐标
+            overlay_items.append(OverlayItem(
+                x=region_left + x,
+                y=region_top + y,
+                w=w, h=h,
+                text=translated_text,
+                original_text=tb.text,
+            ))
+
+            cycle_log.text_boxes.append(TextBoxLog(
+                original=tb.text,
+                translated=translated_text,
+                bbox=[region_left + x, region_top + y, w, h],
+                det_score=tb.det_score,
+                rec_score=tb.rec_score,
+                translate_status=status,
+            ))
+
+        self._overlay.set_items(overlay_items)
+        self._overlay.show_overlay()
+        cycle_log.overlay_ms = timer.elapsed_ms()
+
+        # ── 4. 日志 ──
         cycle_log.total_ms = (
             cycle_log.capture_ms + cycle_log.ocr_det_ms +
             cycle_log.ocr_rec_ms + cycle_log.translate_ms +

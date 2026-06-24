@@ -92,6 +92,10 @@ gui:
   hotkey_quit: "F10"
   # 单次翻译快捷键
   hotkey_single_translate: "F8"
+  # 划屏翻译快捷键
+  hotkey_region_translate: "F7"
+  # 清除覆盖层快捷键
+  hotkey_clear_overlay: "F6"
 
 logging:
   # 是否启用日志

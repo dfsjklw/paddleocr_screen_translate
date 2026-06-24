@@ -86,6 +86,8 @@ class GuiConfig:
     hotkey_pause: str = "F9"
     hotkey_quit: str = "F10"
     hotkey_single_translate: str = "F8"
+    hotkey_region_translate: str = "F7"
+    hotkey_clear_overlay: str = "F6"
 
 
 @dataclass

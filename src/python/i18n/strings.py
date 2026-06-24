@@ -40,6 +40,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Apply Hotkeys",
         "zh": "应用快捷键",
     },
+    "btn.region_translate": {
+        "en": "Region",
+        "zh": "划屏翻译",
+    },
+    "btn.clear_overlay": {
+        "en": "Clear",
+        "zh": "清除覆盖层",
+    },
     "btn.lang_toggle": {
         "en": "中",
         "zh": "EN",
@@ -103,6 +111,34 @@ STRINGS: dict[str, dict[str, str]] = {
     "status.single_init_failed": {
         "en": "Single: init failed",
         "zh": "单次: 初始化失败",
+    },
+    "status.region_init": {
+        "en": "Region: initializing...",
+        "zh": "划屏: 初始化中…",
+    },
+    "status.region_capturing": {
+        "en": "Region: capturing...",
+        "zh": "划屏: 截图中…",
+    },
+    "status.region_done": {
+        "en": "Region: done",
+        "zh": "划屏: 完成",
+    },
+    "status.region_error": {
+        "en": "Region: error: {error}",
+        "zh": "划屏: 错误: {error}",
+    },
+    "status.region_init_failed": {
+        "en": "Region: init failed",
+        "zh": "划屏: 初始化失败",
+    },
+    "status.region_selecting": {
+        "en": "Region: drag to select area (ESC to cancel)",
+        "zh": "划屏: 拖动选择区域 (ESC 取消)",
+    },
+    "status.overlay_cleared": {
+        "en": "Overlay cleared",
+        "zh": "覆盖层已清除",
     },
     "status.error": {
         "en": "Error: {error}",
@@ -280,6 +316,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Quit:",
         "zh": "退出:",
     },
+    "field.hotkey_region": {
+        "en": "Region Trans:",
+        "zh": "划屏翻译:",
+    },
+    "field.hotkey_clear": {
+        "en": "Clear Overlay:",
+        "zh": "清除覆盖层:",
+    },
 
     # ── 复选框 ──
     "cb.diff_detection": {
@@ -312,11 +356,19 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Single-shot translation (capture one frame, OCR, translate, overlay)",
         "zh": "单次翻译 (截取一帧 → OCR → 翻译 → 覆盖显示)",
     },
+    "tooltip.region": {
+        "en": "Region translation — drag to select screen area, OCR, translate, overlay at original position",
+        "zh": "划屏翻译 — 拖动选择屏幕区域 → OCR → 翻译 → 原位覆盖显示",
+    },
+    "tooltip.clear_overlay": {
+        "en": "Clear all overlay text from the screen",
+        "zh": "清除屏幕上所有覆盖层文字",
+    },
 
     # ── 快捷键提示 ──
     "hotkey.label": {
-        "en": "Hotkeys: {single} = Single Shot, {pause} = Pause/Resume, {quit} = Quit",
-        "zh": "快捷键: {single} = 单次翻译, {pause} = 暂停/继续, {quit} = 退出",
+        "en": "Hotkeys: {single} = Single, {region} = Region, {clear} = Clear, {pause} = Pause, {quit} = Quit",
+        "zh": "快捷键: {single} = 单次翻译, {region} = 划屏翻译, {clear} = 清除覆盖层, {pause} = 暂停, {quit} = 退出",
     },
 
     # ── 对话框消息 ──
@@ -439,5 +491,15 @@ STRINGS: dict[str, dict[str, str]] = {
     "result.trans_header": {
         "en": "Cycle #{id} — Translation ({count} items) | Total: {total}ms",
         "zh": "周期 #{id} — 翻译 ({count} 项) | 总计: {total}ms",
+    },
+
+    # ── 划屏翻译区域选择器 ──
+    "region.instructions": {
+        "en": "Click and drag to select a region for translation\nPress ESC or right-click to cancel",
+        "zh": "点击并拖动选择要翻译的区域\n按 ESC 或右键取消",
+    },
+    "region.dimensions": {
+        "en": "{w} x {h}",
+        "zh": "{w} x {h}",
     },
 }

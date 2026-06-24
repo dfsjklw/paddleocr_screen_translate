@@ -242,6 +242,10 @@ class MainWindow(wx.Frame):
         on_single_done: Optional[Callable[[], None]] = None,
         on_ocr_result: Optional[Callable[[int, list, float, float], None]] = None,
         on_translation_result: Optional[Callable[[int, list, float], None]] = None,
+        on_region_translate: Optional[Callable[[], None]] = None,
+        on_clear_overlay: Optional[Callable[[], None]] = None,
+        on_region_start: Optional[Callable[[], None]] = None,
+        on_region_done: Optional[Callable[[], None]] = None,
     ):
         super().__init__(None, title=tr("app.title"), size=(520, 660))
         self._config = config
@@ -253,9 +257,14 @@ class MainWindow(wx.Frame):
         self._on_single_done = on_single_done
         self._on_ocr = on_ocr_result
         self._on_trans = on_translation_result
+        self._on_region = on_region_translate
+        self._on_clear = on_clear_overlay
+        self._on_region_start = on_region_start
+        self._on_region_done = on_region_done
 
         # State
         self._single_in_progress = False
+        self._region_in_progress = False
         self._pipeline_running = False
 
         # Dynamic labels registry (for language switching)
@@ -299,6 +308,10 @@ class MainWindow(wx.Frame):
         self._btn_start.SetLabel(tr("btn.start"))
         self._btn_single.SetLabel(tr("btn.single"))
         self._btn_single.SetToolTip(tr("tooltip.single"))
+        self._btn_region.SetLabel(tr("btn.region_translate"))
+        self._btn_region.SetToolTip(tr("tooltip.region"))
+        self._btn_clear.SetLabel(tr("btn.clear_overlay"))
+        self._btn_clear.SetToolTip(tr("tooltip.clear_overlay"))
         if self._btn_pause.IsEnabled() and self._btn_pause.GetLabel() == tr("btn.resume"):
             self._btn_pause.SetLabel(tr("btn.resume"))
         else:
@@ -470,6 +483,26 @@ class MainWindow(wx.Frame):
         btn_card.SetSizer(wx.BoxSizer(wx.VERTICAL))
         btn_card.GetSizer().Add(btn_sz, 0, wx.ALL, 12)
         sz.Add(btn_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
+        sz.AddSpacer(8)
+
+        # ── Region & Clear Buttons ──
+        rc_card = wx.Panel(page)
+        rc_card.SetBackgroundColour(WHITE)
+        rc_btn_sz = wx.BoxSizer(wx.HORIZONTAL)
+
+        self._btn_region = _make_btn(rc_card, tr("btn.region_translate"), PRIMARY, (130, 38))
+        self._btn_region.SetToolTip(tr("tooltip.region"))
+        self._btn_region.Bind(wx.EVT_BUTTON, lambda e: self._on_region() if self._on_region else None)
+        rc_btn_sz.Add(self._btn_region, 0, wx.RIGHT, 8)
+
+        self._btn_clear = _make_btn(rc_card, tr("btn.clear_overlay"), size=(130, 38))
+        self._btn_clear.SetToolTip(tr("tooltip.clear_overlay"))
+        self._btn_clear.Bind(wx.EVT_BUTTON, lambda e: self._on_clear() if self._on_clear else None)
+        rc_btn_sz.Add(self._btn_clear, 0)
+
+        rc_card.SetSizer(wx.BoxSizer(wx.VERTICAL))
+        rc_card.GetSizer().Add(rc_btn_sz, 0, wx.ALL, 12)
+        sz.Add(rc_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
         sz.AddSpacer(8)
 
         # ── Quick Toggles Card ──
@@ -763,6 +796,7 @@ class MainWindow(wx.Frame):
         card.SetBackgroundColour(WHITE)
         cs = wx.BoxSizer(wx.VERTICAL)
 
+        # Row 1: Single, Pause, Quit
         hk_row = wx.BoxSizer(wx.HORIZONTAL)
         self._hotkey_single_input, hss = _make_labeled_input(card, tr("field.hotkey_single"),
                                                               cfg.gui.hotkey_single_translate, size=(70, -1))
@@ -774,6 +808,16 @@ class MainWindow(wx.Frame):
                                                             cfg.gui.hotkey_quit, size=(70, -1))
         hk_row.Add(hqs, 0)
         cs.Add(hk_row, 0, wx.ALL, 10)
+
+        # Row 2: Region Translate, Clear Overlay
+        hk_row2 = wx.BoxSizer(wx.HORIZONTAL)
+        self._hotkey_region_input, hrs = _make_labeled_input(card, tr("field.hotkey_region"),
+                                                              cfg.gui.hotkey_region_translate, size=(70, -1))
+        hk_row2.Add(hrs, 0, wx.RIGHT, 10)
+        self._hotkey_clear_input, hcs = _make_labeled_input(card, tr("field.hotkey_clear"),
+                                                             cfg.gui.hotkey_clear_overlay, size=(70, -1))
+        hk_row2.Add(hcs, 0)
+        cs.Add(hk_row2, 0, wx.ALL, 10)
 
         btn_row = wx.BoxSizer(wx.HORIZONTAL)
         self._btn_apply_hotkeys = _make_btn(card, tr("btn.apply_hotkeys"), PRIMARY, (130, 32))
@@ -863,6 +907,8 @@ class MainWindow(wx.Frame):
         cfg = self._config.gui
         return tr("hotkey.label",
                   single=cfg.hotkey_single_translate,
+                  region=cfg.hotkey_region_translate,
+                  clear=cfg.hotkey_clear_overlay,
                   pause=cfg.hotkey_pause,
                   quit=cfg.hotkey_quit)
 
@@ -884,6 +930,10 @@ class MainWindow(wx.Frame):
                 (cfg.hotkey_quit, lambda: wx.CallAfter(self._on_stop)),
                 (cfg.hotkey_single_translate,
                  lambda: wx.CallAfter(self._on_single) if self._on_single else None),
+                (cfg.hotkey_region_translate,
+                 lambda: wx.CallAfter(self._on_region) if self._on_region else None),
+                (cfg.hotkey_clear_overlay,
+                 lambda: wx.CallAfter(self._on_clear) if self._on_clear else None),
             ]:
                 handler = keyboard.add_hotkey(hotkey_str, callback, suppress=True)
                 self._hotkey_handlers.append(handler)
@@ -902,12 +952,14 @@ class MainWindow(wx.Frame):
         new_single = self._hotkey_single_input.GetValue().strip()
         new_pause = self._hotkey_pause_input.GetValue().strip()
         new_quit = self._hotkey_quit_input.GetValue().strip()
+        new_region = self._hotkey_region_input.GetValue().strip()
+        new_clear = self._hotkey_clear_input.GetValue().strip()
 
-        if not new_single or not new_pause or not new_quit:
+        if not new_single or not new_pause or not new_quit or not new_region or not new_clear:
             wx.MessageBox(tr("dlg.hotkey_empty"), tr("dlg.hotkey_invalid_title"),
                           wx.OK | wx.ICON_WARNING)
             return
-        if len({new_single, new_pause, new_quit}) < 3:
+        if len({new_single, new_pause, new_quit, new_region, new_clear}) < 5:
             wx.MessageBox(tr("dlg.hotkey_duplicate"), tr("dlg.hotkey_invalid_title"),
                           wx.OK | wx.ICON_WARNING)
             return
@@ -916,11 +968,14 @@ class MainWindow(wx.Frame):
         cfg.hotkey_single_translate = new_single
         cfg.hotkey_pause = new_pause
         cfg.hotkey_quit = new_quit
+        cfg.hotkey_region_translate = new_region
+        cfg.hotkey_clear_overlay = new_clear
 
         self._unbind_hotkeys()
         self._register_hotkeys()
         self._refresh_hotkey_label()
-        print(f"[GUI] Hotkeys applied: single={new_single}, pause={new_pause}, quit={new_quit}")
+        print(f"[GUI] Hotkeys applied: single={new_single}, pause={new_pause}, "
+              f"quit={new_quit}, region={new_region}, clear={new_clear}")
 
     # ── URL Test ───────────────────────────────────────────────────
 
@@ -994,6 +1049,24 @@ class MainWindow(wx.Frame):
                 elif status == "Single: init failed":
                     disp = tr("status.single_init_failed")
                     self._single_in_progress = False
+                elif status == "Region: initializing...":
+                    disp = tr("status.region_init")
+                elif status == "Region: capturing...":
+                    disp = tr("status.region_capturing")
+                elif status == "Region: done":
+                    disp = tr("status.region_done")
+                    self._region_in_progress = False
+                elif status.startswith("Region: error:"):
+                    error = status[len("Region: error:"):].strip()
+                    disp = tr("status.region_error", error=error)
+                    self._region_in_progress = False
+                elif status == "Region: init failed":
+                    disp = tr("status.region_init_failed")
+                    self._region_in_progress = False
+                elif status == "Region: selecting":
+                    disp = tr("status.region_selecting")
+                elif status == "Overlay cleared":
+                    disp = tr("status.overlay_cleared")
                 else:
                     disp = status
                 self._status_text.SetLabel(disp)
@@ -1023,6 +1096,7 @@ class MainWindow(wx.Frame):
                 self._status_dot.SetState("stopped")
 
             self._btn_single.Enable(not self._single_in_progress)
+            self._btn_region.Enable(not self._region_in_progress)
         wx.CallAfter(_update)
 
     def update_ocr_result(self, cycle_id: int, boxes: list,
@@ -1159,6 +1233,8 @@ class MainWindow(wx.Frame):
             cfg.gui.hotkey_single_translate = self._hotkey_single_input.GetValue().strip()
             cfg.gui.hotkey_pause = self._hotkey_pause_input.GetValue().strip()
             cfg.gui.hotkey_quit = self._hotkey_quit_input.GetValue().strip()
+            cfg.gui.hotkey_region_translate = self._hotkey_region_input.GetValue().strip()
+            cfg.gui.hotkey_clear_overlay = self._hotkey_clear_input.GetValue().strip()
 
         cfg.gui.ui_language = self._locale.lang
 

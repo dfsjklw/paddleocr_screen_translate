@@ -21,6 +21,7 @@ os.environ.setdefault("PADDLE_PDX_CACHE_HOME", os.path.join(_BASE_DIR, ".paddlex
 import wx
 from src.python.config.settings import load_config, AppConfig
 from src.python.gui.main_window import MainWindow, TrayIcon
+from src.python.gui.region_selector import RegionSelector
 from src.python.overlay.overlay import OverlayWindow
 from src.python.pipeline.pipeline import Pipeline
 from src.python.i18n import init_locale
@@ -53,6 +54,10 @@ class App(wx.App):
             on_single_translate=self._single_translate,
             on_single_start=self._on_single_start,
             on_single_done=self._on_single_done,
+            on_region_translate=self._region_translate,
+            on_clear_overlay=self._clear_overlay,
+            on_region_start=self._on_region_start,
+            on_region_done=self._on_region_done,
         )
 
         # 设置 OCR 和翻译结果回调
@@ -105,6 +110,70 @@ class App(wx.App):
             on_start=self._on_single_start,
             on_done=self._on_single_done,
         )
+
+    def _region_translate(self):
+        """执行划屏翻译 — 清除覆盖层，让用户选择屏幕区域"""
+        # 1. 清除屏幕上的所有覆盖层
+        self._overlay.clear()
+        self._on_status("Overlay cleared")
+
+        # 2. 隐藏主窗口以便选择屏幕区域
+        if self._window and self._window.IsShown():
+            self._window.Hide()
+
+        # 3. 短暂延迟让覆盖层清除和窗口隐藏生效
+        wx.CallLater(200, self._show_region_selector)
+
+    def _show_region_selector(self):
+        """显示区域选择器"""
+        self._on_status("Region: selecting")
+        RegionSelector(
+            on_region_selected=self._on_region_selected,
+            on_cancel=self._on_region_cancelled,
+        )
+
+    def _on_region_selected(self, left: int, top: int, width: int, height: int, frame):
+        """用户完成区域选择"""
+        import numpy as np
+
+        # 恢复主窗口
+        if self._window:
+            self._window.Show()
+            self._window.Raise()
+            self._window.sync_config_from_gui()
+
+        # 在后台线程中运行 OCR + 翻译 + 覆盖
+        self._pipeline.run_region_translate(
+            frame=frame,
+            region_left=left,
+            region_top=top,
+            on_start=self._on_region_start,
+            on_done=self._on_region_done,
+        )
+
+    def _on_region_cancelled(self):
+        """用户取消区域选择"""
+        if self._window:
+            self._window.Show()
+            self._window.Raise()
+        self._on_status("Ready")
+
+    def _clear_overlay(self):
+        """一键清除屏幕覆盖层"""
+        self._overlay.clear()
+        self._on_status("Overlay cleared")
+
+    def _on_region_start(self):
+        """划屏翻译开始"""
+        if self._window:
+            self._window._region_in_progress = True
+            wx.CallAfter(lambda: self._window._btn_region.Enable(False))
+
+    def _on_region_done(self):
+        """划屏翻译完成"""
+        if self._window:
+            self._window._region_in_progress = False
+            wx.CallAfter(lambda: self._window._btn_region.Enable(True))
 
     def _on_single_start(self):
         """单次翻译开始"""
