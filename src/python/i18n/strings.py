@@ -397,6 +397,40 @@ STRINGS: dict[str, dict[str, str]] = {
         "zh": "EasyOCR",
     },
 
+    # ── 选项卡标签 ──
+    "tab.control": {
+        "en": "🎛  Control",
+        "zh": "🎛  控制",
+    },
+    "tab.ocr": {
+        "en": "🔍  OCR",
+        "zh": "🔍  OCR",
+    },
+    "tab.translator": {
+        "en": "🌐  Translator",
+        "zh": "🌐  翻译器",
+    },
+    "tab.overlay": {
+        "en": "🖼  Overlay",
+        "zh": "🖼  覆盖层",
+    },
+    "tab.capture": {
+        "en": "📷  Capture",
+        "zh": "📷  采集",
+    },
+    "tab.hotkeys": {
+        "en": "⌨  Hotkeys",
+        "zh": "⌨  快捷键",
+    },
+    "tab.logging": {
+        "en": "📋  Logging",
+        "zh": "📋  日志",
+    },
+    "tab.result": {
+        "en": "📊  Results",
+        "zh": "📊  结果",
+    },
+
     # ── 结果区域占位 ──
     "result.cycle_header": {
         "en": "Cycle #{id} — OCR ({count} boxes) | Det: {det}ms  Rec: {rec}ms  Total: {total}ms",

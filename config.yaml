@@ -39,7 +39,7 @@ translator:
   backend: "llama"
   llama:
     # llama.cpp server 地址
-    url: "http://192.168.31.7:8080"
+    url: "http://127.0.0.1:8080"
     # 请求超时 (秒)
     timeout: 30
     # 最大重试次数
