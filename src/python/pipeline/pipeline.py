@@ -54,10 +54,6 @@ class Pipeline:
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
 
-        # 上一帧 (用于差异检测)
-        self._prev_frame_gray: Optional[np.ndarray] = None
-        self._prev_results: list[tuple[TextBox, str]] = []
-
         # 翻译结果缓存 (原文 → 译文)
         self._translation_cache: dict[str, str] = {}
 
@@ -269,25 +265,7 @@ class Pipeline:
             self._logger.write_cycle(cycle_log)
             return
 
-        # ─ 2. 差异检测 ──
-        if self._config.pipeline.diff_detection and self._should_skip_frame(frame):
-            cycle_log.skipped = True
-            cycle_log.skip_reason = "no_change"
-            # 复用上一周期结果
-            if self._prev_results:
-                overlay_items = [
-                    OverlayItem(
-                        x=tb.bounding_rect[0], y=tb.bounding_rect[1],
-                        w=tb.bounding_rect[2], h=tb.bounding_rect[3],
-                        text=translated, original_text=tb.text,
-                    )
-                    for tb, translated in self._prev_results
-                ]
-                self._overlay.set_items(overlay_items)
-            self._logger.write_cycle(cycle_log)
-            return
-
-        # ── 3. OCR ──
+        # ── 2. OCR ──
         timer.start()
         # 记录原始尺寸（用于后续坐标恢复）
         orig_h, orig_w = frame.shape[:2]
@@ -308,7 +286,7 @@ class Pipeline:
         cycle_log.ocr_det_ms = ocr_total_ms
         cycle_log.ocr_rec_ms = 0.0
 
-        boxes = ocr_result.boxes[:self._config.pipeline.max_text_boxes]
+        boxes = ocr_result.boxes
 
         # 如果做了下采样，将 OCR 返回的坐标还原到原始图像空间
         if scale_factor < 1.0:
@@ -333,7 +311,6 @@ class Pipeline:
             cycle_log.skipped = True
             cycle_log.skip_reason = "no_text"
             self._overlay.set_items([])  # 原子清除（线程安全）
-            self._prev_results = []
             self._logger.write_cycle(cycle_log)
             return
 
@@ -394,7 +371,6 @@ class Pipeline:
         timer.start()
 
         overlay_items = []
-        self._prev_results = []
         for i, (tb, trans_result) in enumerate(zip(boxes, translations)):
             x, y, w, h = tb.bounding_rect
             translated_text = trans_result.text if trans_result else tb.text
@@ -405,7 +381,6 @@ class Pipeline:
                 text=translated_text,
                 original_text=tb.text,
             ))
-            self._prev_results.append((tb, translated_text))
 
             cycle_log.text_boxes.append(TextBoxLog(
                 original=tb.text,
@@ -471,7 +446,7 @@ class Pipeline:
         cycle_log.ocr_det_ms = ocr_total_ms
         cycle_log.ocr_rec_ms = 0.0
 
-        boxes = ocr_result.boxes[:self._config.pipeline.max_text_boxes]
+        boxes = ocr_result.boxes
 
         # 将 OCR 坐标还原到原始图像空间
         if scale_factor < 1.0:
@@ -702,20 +677,3 @@ class Pipeline:
         ]
         
         return filtered_boxes
-
-    def _should_skip_frame(self, frame: np.ndarray) -> bool:
-        """检测当前帧与上一帧是否几乎相同"""
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # 降采样以加速比较
-        small = cv2.resize(gray, (160, 90))
-
-        if self._prev_frame_gray is not None:
-            diff = np.mean(np.abs(small.astype(np.float32) -
-                                  self._prev_frame_gray.astype(np.float32)))
-            # 平均差异小于阈值则跳过
-            threshold = (1.0 - self._config.pipeline.diff_threshold) * 255
-            if diff < threshold:
-                return True
-
-        self._prev_frame_gray = small
-        return False

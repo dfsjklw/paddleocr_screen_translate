@@ -15,9 +15,6 @@ else:
 if _BASE_DIR not in sys.path:
     sys.path.insert(0, _BASE_DIR)
 
-# 将 PaddleX 缓存目录重定向到项目本地，避免写入用户文件夹 (~/.paddlex/)
-os.environ.setdefault("PADDLE_PDX_CACHE_HOME", os.path.join(_BASE_DIR, ".paddlex_cache"))
-
 import wx
 from src.python.config.settings import load_config, AppConfig
 from src.python.gui.main_window import MainWindow, TrayIcon

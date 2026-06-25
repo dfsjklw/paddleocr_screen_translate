@@ -321,15 +321,10 @@ class MainWindow(wx.Frame):
         self._btn_apply_hotkeys.SetLabel(tr("btn.apply_hotkeys"))
 
         # Toggle labels
-        self._tb_diff.SetLabel(tr("cb.diff_detection"))
-        self._tb_invert.SetLabel(tr("cb.invert_dark"))
-        self._tb_denoise.SetLabel(tr("cb.denoise"))
-        self._tb_enhance.SetLabel(tr("cb.enhance"))
         self._tb_exclude.SetLabel(tr("cb.exclude_capture"))
         self._tb_log.SetLabel(tr("cb.logging"))
 
-        # Diff / Downscale buttons
-        self._update_diff_button_label()
+        # Downscale button
         self._update_downscale_button_label()
 
         # Dynamic labels
@@ -339,12 +334,6 @@ class MainWindow(wx.Frame):
             elif isinstance(ctrl, wx.Button):
                 ctrl.SetLabel(tr(key, **kwargs))
 
-        # OCR engine choice
-        engine_idx = 0 if self._config.ocr.engine == "paddle" else 1
-        self._ocr_engine_choice.SetItems([tr("ocr.paddle_label"), tr("ocr.easyocr_label")])
-        self._ocr_engine_choice.SetSelection(engine_idx)
-        self._easyocr_hint.SetLabel(tr("field.easyocr_hint"))
-
         # Hotkey hint
         self._refresh_hotkey_label()
 
@@ -352,12 +341,6 @@ class MainWindow(wx.Frame):
         self._status_dot.SetState("stopped")
         self._status_text.SetLabel(tr("status.ready"))
         self.Layout()
-
-    def _update_diff_button_label(self):
-        if self._config.pipeline.diff_detection:
-            self._btn_diff.SetLabel(tr("diff.on"))
-        else:
-            self._btn_diff.SetLabel(tr("diff.off"))
 
     def _update_downscale_button_label(self):
         if self._config.pipeline.downscale_max_size > 0:
@@ -510,16 +493,6 @@ class MainWindow(wx.Frame):
         toggle_card.SetBackgroundColour(WHITE)
         tc_sz = wx.BoxSizer(wx.VERTICAL)
 
-        diff_on = cfg.pipeline.diff_detection
-        self._btn_diff = wx.Button(toggle_card,
-                                    label=tr("diff.on") if diff_on else tr("diff.off"),
-                                    size=(-1, 34))
-        self._btn_diff.SetBackgroundColour(BTN_DEFAULT)
-        self._btn_diff.SetForegroundColour(TEXT_MAIN)
-        self._btn_diff.SetWindowStyleFlag(wx.BORDER_NONE)
-        self._btn_diff.Bind(wx.EVT_BUTTON, lambda e: self._on_diff_detection_button())
-        tc_sz.Add(self._btn_diff, 0, wx.EXPAND | wx.ALL, 6)
-
         downscale_on = cfg.pipeline.downscale_max_size > 0
         self._btn_downscale = wx.Button(toggle_card,
                                          label=tr("downscale.on") if downscale_on else tr("downscale.off"),
@@ -564,22 +537,8 @@ class MainWindow(wx.Frame):
         # Pipeline params
         pipe_row1 = wx.BoxSizer(wx.HORIZONTAL)
         self._interval_input, isz = _make_float_input(set_card, tr("field.cycle_interval"), cfg.pipeline.cycle_interval)
-        pipe_row1.Add(isz, 0, wx.RIGHT, 16)
-        self._diff_thresh_input, dsz = _make_float_input(set_card, tr("field.diff_threshold"), cfg.pipeline.diff_threshold)
-        pipe_row1.Add(dsz, 0)
+        pipe_row1.Add(isz, 0)
         sc_sz.Add(pipe_row1, 0, wx.ALL, 10)
-
-        pipe_row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self._max_boxes_input, msz = _make_int_input(set_card, tr("field.max_text_boxes"), cfg.pipeline.max_text_boxes)
-        pipe_row2.Add(msz, 0)
-        sc_sz.Add(pipe_row2, 0, wx.ALL, 10)
-
-        # Diff detection toggle
-        self._tb_diff = ToggleSwitch(set_card, label=tr("cb.diff_detection"))
-        self._tb_diff.SetValue(cfg.pipeline.diff_detection)
-        self._tb_diff.Bind(wx.EVT_CHECKBOX, self._on_diff_detection_toggle)
-        self._toggles.append(self._tb_diff)
-        sc_sz.Add(self._tb_diff, 0, wx.ALL, 10)
 
         set_card.SetSizer(sc_sz)
         sz.Add(set_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
@@ -602,67 +561,52 @@ class MainWindow(wx.Frame):
         card.SetBackgroundColour(WHITE)
         cs = wx.BoxSizer(wx.VERTICAL)
 
-        # Engine selector
-        eng_row = wx.BoxSizer(wx.HORIZONTAL)
-        eng_row.Add(wx.StaticText(card, label=tr("field.ocr_engine")), 0, wx.ALIGN_CENTER_VERTICAL)
-        self._ocr_engine_choice = wx.Choice(card, choices=[tr("ocr.paddle_label"), tr("ocr.easyocr_label")])
-        engine_idx = 0 if cfg.ocr.engine == "paddle" else 1
-        self._ocr_engine_choice.SetSelection(engine_idx)
-        self._ocr_engine_choice.Bind(wx.EVT_CHOICE, self._on_ocr_engine_changed)
-        eng_row.Add(self._ocr_engine_choice, 0, wx.LEFT, 5)
-        cs.Add(eng_row, 0, wx.ALL, 10)
+        # Engine info
+        info_label = wx.StaticText(card, label="NCNN PaddleOCRv5")
+        info_font = info_label.GetFont()
+        info_font.SetWeight(wx.FONTWEIGHT_BOLD)
+        info_label.SetFont(info_font)
+        info_label.SetForegroundColour(TEXT_MAIN)
+        cs.Add(info_label, 0, wx.ALL, 10)
 
-        # EasyOCR languages
-        easy_row = wx.BoxSizer(wx.HORIZONTAL)
-        easy_lang_str = ",".join(cfg.ocr.easyocr_languages) if cfg.ocr.easyocr_languages else "en"
-        self._easyocr_lang_input, el_sz = _make_labeled_input(card, tr("field.easyocr_langs"), easy_lang_str, size=(120, -1))
-        easy_row.Add(el_sz, 0)
-        self._easyocr_hint = _hint_label(card, tr("field.easyocr_hint"))
-        easy_row.Add(self._easyocr_hint, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 6)
-        self._easyocr_row = easy_row
-        cs.Add(easy_row, 0, wx.ALL, 10)
-        if cfg.ocr.engine != "easyocr":
-            easy_row.ShowItems(False)
+        hint = _hint_label(card, "screen_transalate_ocr.exe — ncnn inference engine")
+        cs.Add(hint, 0, wx.LEFT | wx.RIGHT, 10)
 
-        # Separator
+        # ── Detection params ──
+        det_label = wx.StaticText(card, label=tr("section.detection"))
+        det_label.SetForegroundColour(TEXT_MUTED)
+        cs.Add(det_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        det_row = wx.BoxSizer(wx.HORIZONTAL)
+        self._det_box_thresh_input, dbs = _make_float_input(card, tr("field.det_box_thresh"), cfg.ocr.det_box_thresh)
+        det_row.Add(dbs, 0, wx.RIGHT, 16)
+        self._det_binary_thresh_input, dns = _make_float_input(card, tr("field.det_binary_thresh"), cfg.ocr.det_binary_thresh)
+        det_row.Add(dns, 0)
+        cs.Add(det_row, 0, wx.ALL, 10)
+
         cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
-        # CPU + Resize
-        row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self._cpu_threads_input, csz = _make_int_input(card, tr("field.cpu_threads"), cfg.ocr.cpu_threads)
-        row1.Add(csz, 0, wx.RIGHT, 16)
-        self._det_resize_long_input, rsz = _make_int_input(card, tr("field.resize_long"), cfg.ocr.det_resize_long)
-        row1.Add(rsz, 0)
-        cs.Add(row1, 0, wx.ALL, 10)
+        # ── Recognition filter params ──
+        rec_label = wx.StaticText(card, label=tr("section.recognition"))
+        rec_label.SetForegroundColour(TEXT_MUTED)
+        cs.Add(rec_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
 
-        # Thresholds
-        row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self._det_thresh_input, dts = _make_float_input(card, tr("field.det_threshold"), cfg.ocr.det_threshold)
-        row2.Add(dts, 0, wx.RIGHT, 16)
-        self._box_thresh_input, bts = _make_float_input(card, tr("field.box_threshold"), cfg.ocr.box_threshold)
-        row2.Add(bts, 0, wx.RIGHT, 16)
+        rec_row = wx.BoxSizer(wx.HORIZONTAL)
+        self._rec_char_thresh_input, rcs = _make_float_input(card, tr("field.rec_char_thresh"), cfg.ocr.rec_char_thresh)
+        rec_row.Add(rcs, 0, wx.RIGHT, 16)
+        self._rec_block_thresh_input, rbs = _make_float_input(card, tr("field.rec_block_thresh"), cfg.ocr.rec_block_thresh)
+        rec_row.Add(rbs, 0)
+        cs.Add(rec_row, 0, wx.ALL, 10)
+
+        cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # ── Dictionary & Confidence ──
+        dict_row = wx.BoxSizer(wx.HORIZONTAL)
+        self._dict_name_input, dns = _make_labeled_input(card, tr("field.dict_name"), cfg.ocr.dict_name, size=(90, -1))
+        dict_row.Add(dns, 0, wx.RIGHT, 16)
         self._min_conf_input, mcs = _make_float_input(card, tr("field.min_confidence"), cfg.ocr.min_confidence)
-        row2.Add(mcs, 0)
-        cs.Add(row2, 0, wx.ALL, 10)
-
-        # Preproc toggles
-        self._tb_invert = ToggleSwitch(card, label=tr("cb.invert_dark"))
-        self._tb_invert.SetValue(cfg.ocr.det_invert_dark)
-        self._tb_invert.Bind(wx.EVT_CHECKBOX, self._on_ocr_preproc_toggle)
-        self._toggles.append(self._tb_invert)
-        cs.Add(self._tb_invert, 0, wx.ALL, 10)
-
-        self._tb_denoise = ToggleSwitch(card, label=tr("cb.denoise"))
-        self._tb_denoise.SetValue(cfg.ocr.det_denoise)
-        self._tb_denoise.Bind(wx.EVT_CHECKBOX, self._on_ocr_preproc_toggle)
-        self._toggles.append(self._tb_denoise)
-        cs.Add(self._tb_denoise, 0, wx.ALL, 10)
-
-        self._tb_enhance = ToggleSwitch(card, label=tr("cb.enhance"))
-        self._tb_enhance.SetValue(cfg.ocr.rec_enhance)
-        self._tb_enhance.Bind(wx.EVT_CHECKBOX, self._on_ocr_preproc_toggle)
-        self._toggles.append(self._tb_enhance)
-        cs.Add(self._tb_enhance, 0, wx.ALL, 10)
+        dict_row.Add(mcs, 0)
+        cs.Add(dict_row, 0, wx.ALL, 10)
 
         card.SetSizer(cs)
         sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
@@ -1175,27 +1119,18 @@ class MainWindow(wx.Frame):
 
         try: cfg.pipeline.cycle_interval = float(self._interval_input.GetValue())
         except ValueError: pass
-        try: cfg.pipeline.diff_threshold = float(self._diff_thresh_input.GetValue())
-        except ValueError: pass
-        try: cfg.pipeline.max_text_boxes = int(self._max_boxes_input.GetValue())
-        except ValueError: pass
 
-        cfg.ocr.engine = self._ocr_engine_from_selection()
-        lang_str = self._easyocr_lang_input.GetValue().strip()
-        cfg.ocr.easyocr_languages = [l.strip() for l in lang_str.split(",") if l.strip()] if lang_str else ["en"]
-        try: cfg.ocr.cpu_threads = int(self._cpu_threads_input.GetValue())
+        try: cfg.ocr.det_box_thresh = float(self._det_box_thresh_input.GetValue())
         except ValueError: pass
-        try: cfg.ocr.det_resize_long = int(self._det_resize_long_input.GetValue())
+        try: cfg.ocr.det_binary_thresh = float(self._det_binary_thresh_input.GetValue())
         except ValueError: pass
-        try: cfg.ocr.det_threshold = float(self._det_thresh_input.GetValue())
+        try: cfg.ocr.rec_char_thresh = float(self._rec_char_thresh_input.GetValue())
         except ValueError: pass
-        try: cfg.ocr.box_threshold = float(self._box_thresh_input.GetValue())
+        try: cfg.ocr.rec_block_thresh = float(self._rec_block_thresh_input.GetValue())
         except ValueError: pass
+        cfg.ocr.dict_name = self._dict_name_input.GetValue().strip()
         try: cfg.ocr.min_confidence = float(self._min_conf_input.GetValue())
         except ValueError: pass
-        cfg.ocr.det_invert_dark = self._tb_invert.GetValue()
-        cfg.ocr.det_denoise = self._tb_denoise.GetValue()
-        cfg.ocr.rec_enhance = self._tb_enhance.GetValue()
 
         ll = cfg.translator.llama
         try: ll.timeout = int(self._timeout_input.GetValue())
@@ -1252,17 +1187,6 @@ class MainWindow(wx.Frame):
 
     # ── Toggle / Checkbox Callbacks ────────────────────────────────
 
-    def _on_diff_detection_button(self):
-        current = self._config.pipeline.diff_detection
-        new_state = not current
-        self._config.pipeline.diff_detection = new_state
-        self._tb_diff.SetValue(new_state)
-        self._update_diff_button_label()
-
-    def _on_diff_detection_toggle(self, event):
-        self._config.pipeline.diff_detection = self._tb_diff.GetValue()
-        self._update_diff_button_label()
-
     def _on_downscale_button(self):
         current = self._config.pipeline.downscale_max_size > 0
         new_state = not current
@@ -1274,38 +1198,6 @@ class MainWindow(wx.Frame):
 
     def _on_logging_toggle(self, event):
         self._config.logging.enabled = self._tb_log.GetValue()
-
-    def _on_ocr_preproc_toggle(self, event):
-        cfg = self._config.ocr
-        cfg.det_invert_dark = self._tb_invert.GetValue()
-        cfg.det_denoise = self._tb_denoise.GetValue()
-        cfg.rec_enhance = self._tb_enhance.GetValue()
-
-    def _ocr_engine_from_selection(self) -> str:
-        idx = self._ocr_engine_choice.GetSelection()
-        return "paddle" if idx == 0 else "easyocr"
-
-    def _on_ocr_engine_changed(self, event):
-        engine = self._ocr_engine_from_selection()
-        old_engine = self._config.ocr.engine
-        self._config.ocr.engine = engine
-
-        # Show/hide EasyOCR language row
-        if engine == "easyocr":
-            self._easyocr_row.ShowItems(True)
-        else:
-            self._easyocr_row.ShowItems(False)
-        self._easyocr_row.GetContainingSizer().Layout()
-
-        if engine != old_engine:
-            if self._pipeline_running:
-                self._on_stop()
-                print(f"[GUI] Pipeline restarting with engine: {engine}")
-                wx.CallLater(600, self._on_start)
-            else:
-                print(f"[GUI] Initializing engine: {engine} (pipeline not running)")
-                self._on_start()
-                wx.CallLater(400, self._on_stop)
 
 
 # ═══════════════════════════════════════════════════════════════════

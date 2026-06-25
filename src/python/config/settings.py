@@ -36,21 +36,18 @@ class TranslatorConfig:
 
 @dataclass
 class OcrConfig:
-    engine: str = "paddle"          # OCR引擎: "paddle" 或 "easyocr"
-    # PaddleOCR 专用配置
-    det_model_dir: str = "./PP-OCRv5_mobile_det_infer"
-    rec_model_dir: str = "./PP-OCRv5_mobile_rec_infer"
-    cpu_threads: int = 4
-    det_threshold: float = 0.3
-    box_threshold: float = 0.6
-    min_confidence: float = 0.5
-    det_resize_long: int = 960
-    # 图像预处理开关
-    det_invert_dark: bool = True    # 深色背景自动反色
-    det_denoise: bool = False       # 检测前去噪 (Gaussian blur)
-    rec_enhance: bool = False       # 识别前增强 (CLAHE)
-    # EasyOCR 专用配置
-    easyocr_languages: list = field(default_factory=lambda: ["en"])  # EasyOCR 语言列表
+    engine: str = "ncnn"                        # OCR 引擎 (NCNN PaddleOCRv5)
+    exe_path: str = "./ncnn_ocr/screen_transalate_ocr.exe"  # NCNN OCR 可执行文件路径
+    min_confidence: float = 0.5                 # 最小识别置信度 (Python 侧二次过滤)
+    timeout: int = 30                           # subprocess 超时 (秒)
+    # 检测参数 (传递给 --box-thresh / --binary-thresh)
+    det_box_thresh: float = 0.6                 # 检测框轮廓分数阈值 (0.0-1.0)
+    det_binary_thresh: float = 0.3              # 概率图二值化阈值 (0.0-1.0)
+    # 识别过滤参数 (传递给 --char-thresh / --block-thresh)
+    rec_char_thresh: float = 0.0                # 单字符置信度阈值 (0.0-1.0，0.0=关闭)
+    rec_block_thresh: float = 0.0               # 文本块平均置信度阈值 (0.0-1.0，0.0=关闭)
+    # 字典
+    dict_name: str = "zh_dict.txt"              # 字典文件名 (zh_dict.txt / en_dict.txt)
 
 
 @dataclass
@@ -74,9 +71,6 @@ class OverlayConfig:
 @dataclass
 class PipelineConfig:
     cycle_interval: float = 5.0
-    diff_detection: bool = False
-    diff_threshold: float = 0.95
-    max_text_boxes: int = 50
     downscale_max_size: int = 720   # OCR前将长边>此值的图像等比缩至此值; 0=不缩放
 
 

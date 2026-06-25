@@ -53,15 +53,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "zh": "EN",
     },
 
-    # ── 差异检测按钮 ──
-    "diff.on": {
-        "en": "Diff Detection: ON",
-        "zh": "差异检测: 开",
-    },
-    "diff.off": {
-        "en": "Diff Detection: OFF",
-        "zh": "差异检测: 关",
-    },
+    # ── 缩放按钮 ──
     "downscale.on": {
         "en": "720p Downscale: ON",
         "zh": "720p 缩放: 开",
@@ -158,6 +150,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Basic",
         "zh": "基础设置",
     },
+    "section.detection": {
+        "en": "Detection",
+        "zh": "检测参数",
+    },
+    "section.recognition": {
+        "en": "Recognition",
+        "zh": "识别过滤",
+    },
     "section.ocr": {
         "en": "OCR ({engine})",
         "zh": "OCR ({engine})",
@@ -204,45 +204,29 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Cycle interval (s):",
         "zh": "周期间隔 (秒):",
     },
-    "field.diff_threshold": {
-        "en": "Diff threshold:",
-        "zh": "差异阈值:",
-    },
-    "field.max_text_boxes": {
-        "en": "Max text boxes:",
-        "zh": "最大文本框:",
-    },
-    "field.ocr_engine": {
-        "en": "OCR Engine:",
-        "zh": "OCR 引擎:",
-    },
-    "field.easyocr_langs": {
-        "en": "EasyOCR langs:",
-        "zh": "EasyOCR 语言:",
-    },
-    "field.easyocr_hint": {
-        "en": "(comma-separated, e.g. en,ch_sim,ja)",
-        "zh": "(逗号分隔，如 en,ch_sim,ja)",
-    },
-    "field.cpu_threads": {
-        "en": "CPU threads:",
-        "zh": "CPU 线程:",
-    },
-    "field.resize_long": {
-        "en": "Resize long:",
-        "zh": "长边缩放:",
-    },
-    "field.det_threshold": {
-        "en": "Det threshold:",
-        "zh": "检测阈值:",
-    },
-    "field.box_threshold": {
-        "en": "Box threshold:",
-        "zh": "框阈值:",
-    },
     "field.min_confidence": {
         "en": "Min confidence:",
         "zh": "最小置信度:",
+    },
+    "field.det_box_thresh": {
+        "en": "Box thresh:",
+        "zh": "检测框阈值:",
+    },
+    "field.det_binary_thresh": {
+        "en": "Binary thresh:",
+        "zh": "二值化阈值:",
+    },
+    "field.rec_char_thresh": {
+        "en": "Char thresh:",
+        "zh": "字符阈值:",
+    },
+    "field.rec_block_thresh": {
+        "en": "Block thresh:",
+        "zh": "文本块阈值:",
+    },
+    "field.dict_name": {
+        "en": "Dictionary:",
+        "zh": "字典:",
     },
     "field.timeout": {
         "en": "Timeout (s):",
@@ -326,22 +310,6 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 
     # ── 复选框 ──
-    "cb.diff_detection": {
-        "en": "Enable frame diff detection (skip unchanged frames)",
-        "zh": "启用帧差异检测 (跳过无变化帧)",
-    },
-    "cb.invert_dark": {
-        "en": "Auto-invert dark backgrounds",
-        "zh": "深色背景自动反色",
-    },
-    "cb.denoise": {
-        "en": "Denoise before detection (Gaussian blur)",
-        "zh": "检测前去噪 (高斯模糊)",
-    },
-    "cb.enhance": {
-        "en": "Enhance before recognition (CLAHE)",
-        "zh": "识别前增强 (CLAHE)",
-    },
     "cb.exclude_capture": {
         "en": "Exclude overlay from capture (anti-pollution)",
         "zh": "从采集中排除覆盖层 (防污染)",
@@ -437,16 +405,6 @@ STRINGS: dict[str, dict[str, str]] = {
     "tray.quit": {
         "en": "Quit",
         "zh": "退出",
-    },
-
-    # ── OCR 引擎名 ──
-    "ocr.paddle_label": {
-        "en": "PaddleOCR",
-        "zh": "PaddleOCR",
-    },
-    "ocr.easyocr_label": {
-        "en": "EasyOCR",
-        "zh": "EasyOCR",
     },
 
     # ── 选项卡标签 ──

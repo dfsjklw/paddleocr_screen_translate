@@ -3,13 +3,12 @@ End-to-end test for Region Translate and Clear Overlay features.
 
 Tests:
 1. Region screen capture via Win32 GDI (BitBlt + GetDIBits)
-2. OCR on captured region with PaddleOCR
-3. Overlay coordinate offset by region position
-4. Overlay clear functionality
-5. New hotkey config fields
-6. i18n strings completeness
-7. Pipeline region methods existence
-8. RegionSelector module + Win32 GDI capture functions
+2. Overlay coordinate offset by region position
+3. Overlay clear functionality
+4. Hotkey config fields
+5. i18n strings completeness
+6. Pipeline region methods existence
+7. RegionSelector module + Win32 GDI capture functions
 """
 import sys
 import os
@@ -29,10 +28,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-os.environ.setdefault("PADDLE_PDX_CACHE_HOME", os.path.join(BASE_DIR, ".paddlex_cache"))
 
 from src.python.config.settings import load_config, OverlayConfig
-from src.python.ocr import PaddleOcrEngine, OcrOutput
 from src.python.overlay.overlay import OverlayWindow, OverlayItem
 
 
@@ -84,65 +81,8 @@ def test_region_capture():
         return False
 
 
-def test_ocr_on_captured_image():
-    """Test 2: PaddleOCR can process a captured-style image."""
-    print("\n" + "=" * 60)
-    print("Test 2: OCR on Captured Image")
-    print("=" * 60)
-
-    test_text = "Hello World Region Test"
-    print(f"  Creating test image with text: '{test_text}'")
-
-    pil_img = create_test_image(test_text)
-    img_np = np.array(pil_img)
-    img_bgr = img_np[:, :, ::-1].copy()
-
-    print("  Initializing PaddleOCR engine...")
-    cfg = load_config()
-    engine = PaddleOcrEngine(cfg)
-    success = engine.init()
-    if not success:
-        print("  [FAIL] Engine initialization failed!")
-        return False
-    print("  Engine initialized.")
-
-    try:
-        result: OcrOutput = engine.process(img_bgr)
-        print(f"  Detected {len(result.boxes)} text box(es)")
-
-        for i, box in enumerate(result.boxes, 1):
-            x, y, w, h = box.bounding_rect
-            print(f"  [{i}] \"{box.text}\" bbox=({x},{y},{w},{h})")
-
-        all_text = " ".join(b.text for b in result.boxes).lower()
-
-        errors = []
-        if len(result.boxes) == 0:
-            errors.append("No text boxes detected!")
-
-        if "hello" not in all_text:
-            errors.append(f"Expected 'hello' in OCR result, got: '{all_text}'")
-
-        relevant_warnings = [
-            (cat, msg) for cat, msg in _warnings_captured
-            if "paddleocr" in msg.lower() or "paddle" in msg.lower() or "lang" in msg.lower()
-        ]
-        for cat, msg in relevant_warnings:
-            errors.append(f"Unwanted {cat}: {msg}")
-
-        if errors:
-            for e in errors:
-                print(f"  [FAIL] {e}")
-            return False
-        else:
-            print("  [PASS] OCR detected expected text on captured-style image")
-            return True
-    finally:
-        engine.shutdown()
-
-
 def test_coordinate_offset():
-    """Test 3: Overlay coordinate offset by region position."""
+    """Test 2: Overlay coordinate offset by region position."""
     print("\n" + "=" * 60)
     print("Test 3: Overlay Coordinate Offset")
     print("=" * 60)
@@ -188,7 +128,7 @@ def test_coordinate_offset():
 
 
 def test_overlay_clear():
-    """Test 4: Overlay clear functionality."""
+    """Test 3: Overlay clear functionality."""
     print("\n" + "=" * 60)
     print("Test 4: Overlay Clear Functionality")
     print("=" * 60)
@@ -220,7 +160,7 @@ def test_overlay_clear():
 
 
 def test_config_hotkeys():
-    """Test 5: New hotkey config fields exist with correct defaults."""
+    """Test 4: Hotkey config fields exist with correct defaults."""
     print("\n" + "=" * 60)
     print("Test 5: Hotkey Configuration Fields")
     print("=" * 60)
@@ -250,7 +190,7 @@ def test_config_hotkeys():
 
 
 def test_i18n_strings():
-    """Test 6: i18n strings for new features exist in both languages."""
+    """Test 5: i18n strings for new features exist in both languages."""
     print("\n" + "=" * 60)
     print("Test 6: i18n Strings for New Features")
     print("=" * 60)
@@ -306,7 +246,7 @@ def test_i18n_strings():
 
 
 def test_pipeline_region_method_exists():
-    """Test 7: Pipeline has run_region_translate and _execute_region_cycle methods."""
+    """Test 6: Pipeline has run_region_translate and _execute_region_cycle methods."""
     print("\n" + "=" * 60)
     print("Test 7: Pipeline Region Methods")
     print("=" * 60)
@@ -333,7 +273,7 @@ def test_pipeline_region_method_exists():
 
 
 def test_region_selector_module():
-    """Test 8: RegionSelector module + Win32 GDI capture functions."""
+    """Test 7: RegionSelector module + Win32 GDI capture functions."""
     print("\n" + "=" * 60)
     print("Test 8: RegionSelector Module & Win32 GDI")
     print("=" * 60)
@@ -414,7 +354,6 @@ def main():
 
     tests = [
         ("Region Capture", test_region_capture),
-        ("OCR on Captured Image", test_ocr_on_captured_image),
         ("Coordinate Offset", test_coordinate_offset),
         ("Overlay Clear", test_overlay_clear),
         ("Hotkey Config", test_config_hotkeys),
