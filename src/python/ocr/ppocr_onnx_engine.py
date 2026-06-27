@@ -14,6 +14,7 @@ import cv2
 from typing import Optional, List, Tuple
 
 from .types import TextBox, OcrOutput
+from .directml import get_providers, create_dml_session_options
 
 
 # ──────────────────────────────────────────────
@@ -170,7 +171,7 @@ class PpOcrOnnxEngine:
         self._det_binary_thresh = getattr(self._ocr_cfg, 'det_binary_thresh', 0.2)
         self._det_unclip_ratio = getattr(self._ocr_cfg, 'det_unclip_ratio', 1.4)
         self._det_limit_side = getattr(self._ocr_cfg, 'det_limit_side', 960)
-        self._use_gpu = getattr(self._ocr_cfg, 'use_gpu', False)
+        self._use_directml = getattr(self._ocr_cfg, 'use_directml', False)
 
         # 运行时
         self._det_session = None
@@ -218,16 +219,11 @@ class PpOcrOnnxEngine:
             print("[OCR] ERROR: onnxruntime not installed. Run: pip install onnxruntime")
             return False
 
-        # 选择 providers
-        providers = []
-        if self._use_gpu and 'DmlExecutionProvider' in ort.get_available_providers():
-            providers.append('DmlExecutionProvider')
-        providers.append('CPUExecutionProvider')
+        # 选择 providers (可通过 DirectML 模块配置 GPU 加速)
+        providers = get_providers(self._use_directml)
 
         try:
-            so = ort.SessionOptions()
-            so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            so.intra_op_num_threads = 2
+            so = create_dml_session_options(intra_op_threads=2)
             self._det_session = ort.InferenceSession(det_onnx, so, providers=providers)
             self._rec_session = ort.InferenceSession(rec_onnx, so, providers=providers)
         except Exception as e:
@@ -249,7 +245,7 @@ class PpOcrOnnxEngine:
         print(f"[OCR]   Det model: {det_onnx}")
         print(f"[OCR]   Rec model: {rec_onnx}")
         print(f"[OCR]   Char dict size: {len(char_dict)}")
-        print(f"[OCR]   GPU: {'enabled' if self._use_gpu else 'disabled (CPU)'}")
+        print(f"[OCR]   GPU DirectML: {'enabled' if self._use_directml else 'disabled (CPU)'}")
         return True
 
     # ── 主 OCR 方法 ─────────────────────────

@@ -43,7 +43,7 @@ class OcrConfig:
     rec_model_dir: str = "./PP-OCRv6_tiny_rec_onnx"
     det_limit_side: int = 960                   # 检测前长边缩放上限
     det_unclip_ratio: float = 1.4               # DB 后处理 unclip 系数
-    use_gpu: bool = False                       # 启用 DirectML GPU 加速
+    use_directml: bool = False                  # 启用 ONNX DirectML GPU 加速 (Windows 10+)
 
     # ── 通用参数 ──
     min_confidence: float = 0.5                 # 最小识别置信度 (Python 侧二次过滤)
@@ -72,7 +72,7 @@ class OverlayConfig:
 @dataclass
 class PipelineConfig:
     cycle_interval: float = 5.0
-    downscale_max_size: int = 720   # OCR前将长边>此值的图像等比缩至此值; 0=不缩放
+    downscale_max_size: int = 0     # OCR前将长边>此值的图像等比缩至此值; 0=不缩放（默认关闭）
 
 
 @dataclass

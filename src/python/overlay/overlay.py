@@ -165,8 +165,8 @@ class OverlayWindow(wx.Frame):
         # 设置窗口扩展样式
         self._setup_window()
 
-        # 立即显示窗口（完全透明的覆盖层，直到有内容被设置）
-        self.Show(True)
+        # 注意：不立即显示窗口，以免全屏置顶窗口覆盖任务栏区域导致 Windows 任务栏消失。
+        # 窗口仅在 set_items() 收到有效内容时才自动显示。
 
     def _setup_window(self):
         """设置窗口扩展样式"""
@@ -212,12 +212,18 @@ class OverlayWindow(wx.Frame):
     def _set_items_impl(self, items: list[OverlayItem]):
         """（主线程）原子替换覆盖项并重绘"""
         self._items = items
+        if items and not self.IsShown():
+            self.Show(True)
+        elif not items and self.IsShown():
+            self.Show(False)
+            return
         self._render_to_layered_window()
 
     def _clear_impl(self):
         """（主线程）清除覆盖项并重绘"""
         self._items = []
-        self._render_to_layered_window()
+        if self.IsShown():
+            self.Show(False)
 
     def _show_impl(self):
         """（主线程）显示覆盖层"""
