@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from ..config.settings import OverlayConfig
-from ..ocr import TextBox
 
 
 # Win32 常量

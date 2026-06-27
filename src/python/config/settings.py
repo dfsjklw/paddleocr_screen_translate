@@ -36,18 +36,19 @@ class TranslatorConfig:
 
 @dataclass
 class OcrConfig:
-    engine: str = "ncnn"                        # OCR 引擎 (NCNN PaddleOCRv5)
-    exe_path: str = "./ncnn_ocr/screen_transalate_ocr.exe"  # NCNN OCR 可执行文件路径
+    engine: str = "onnx"                        # OCR 引擎: 当前仅支持 "onnx" (PP-OCRv6)
+
+    # ── ONNX 引擎参数 ──
+    det_model_dir: str = "./PP-OCRv6_tiny_det_onnx"
+    rec_model_dir: str = "./PP-OCRv6_tiny_rec_onnx"
+    det_limit_side: int = 960                   # 检测前长边缩放上限
+    det_unclip_ratio: float = 1.4               # DB 后处理 unclip 系数
+    use_gpu: bool = False                       # 启用 DirectML GPU 加速
+
+    # ── 通用参数 ──
     min_confidence: float = 0.5                 # 最小识别置信度 (Python 侧二次过滤)
-    timeout: int = 30                           # subprocess 超时 (秒)
-    # 检测参数 (传递给 --box-thresh / --binary-thresh)
-    det_box_thresh: float = 0.6                 # 检测框轮廓分数阈值 (0.0-1.0)
-    det_binary_thresh: float = 0.3              # 概率图二值化阈值 (0.0-1.0)
-    # 识别过滤参数 (传递给 --char-thresh / --block-thresh)
-    rec_char_thresh: float = 0.0                # 单字符置信度阈值 (0.0-1.0，0.0=关闭)
-    rec_block_thresh: float = 0.0               # 文本块平均置信度阈值 (0.0-1.0，0.0=关闭)
-    # 字典
-    dict_name: str = "zh_dict.txt"              # 字典文件名 (zh_dict.txt / en_dict.txt)
+    det_box_thresh: float = 0.4                 # 检测框分数阈值
+    det_binary_thresh: float = 0.2              # 概率图二值化阈值
 
 
 @dataclass

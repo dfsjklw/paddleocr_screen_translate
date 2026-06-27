@@ -10,27 +10,26 @@ capture:
   fps: 30
 
 ocr:
-  # OCR引擎 (NCNN PaddleOCRv5)
-  engine: "ncnn"
-  # screen_transalate_ocr.exe 路径
-  exe_path: "./ncnn_ocr/screen_transalate_ocr.exe"
+  # OCR引擎: "onnx" (PP-OCRv6, 默认，也是唯一支持)
+  engine: "onnx"
+  # ── ONNX 引擎参数 (engine: "onnx") ──
+  # 检测模型目录 (含 inference.onnx + inference.yml)
+  det_model_dir: "./PP-OCRv6_tiny_det_onnx"
+  # 识别模型目录 (含 inference.onnx + inference.yml)
+  rec_model_dir: "./PP-OCRv6_tiny_rec_onnx"
+  # 检测前长边缩放上限 (保持宽高比缩放)
+  det_limit_side: 960
+  # DB 后处理 unclip 膨胀系数
+  det_unclip_ratio: 1.4
+  # 启用 DirectML GPU 加速 (Windows 10+)
+  use_gpu: false
+  # ── 通用参数 ──
   # Python 侧二次过滤最小置信度 (低于此值的结果丢弃)
   min_confidence: 0.5
-  # subprocess 超时时间 (秒)
-  timeout: 30
-  # ── 检测参数 ──
-  # 检测框轮廓分数阈值 (0.0~1.0，默认 0.6，降低=更宽松)
-  det_box_thresh: 0.6
-  # 概率图二值化阈值 (0.0~1.0，默认 0.3，降低=更宽松)
-  det_binary_thresh: 0.3
-  # ── 识别过滤参数 ──
-  # 单字符置信度阈值 (0.0~1.0，0.0=关闭过滤)
-  rec_char_thresh: 0.0
-  # 文本块平均置信度阈值 (0.0~1.0，0.0=关闭过滤)
-  rec_block_thresh: 0.0
-  # ── 字典 ──
-  # 字典文件名 (zh_dict.txt=中文, en_dict.txt=英文)
-  dict_name: "zh_dict.txt"
+  # 检测框分数阈值 (DB后处理, 默认0.4)
+  det_box_thresh: 0.4
+  # 概率图二值化阈值 (DB后处理, 默认0.2)
+  det_binary_thresh: 0.2
 
 translator:
   # 翻译后端: llama (本地大模型)

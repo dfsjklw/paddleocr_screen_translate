@@ -562,15 +562,17 @@ class MainWindow(wx.Frame):
         cs = wx.BoxSizer(wx.VERTICAL)
 
         # Engine info
-        info_label = wx.StaticText(card, label="NCNN PaddleOCRv5")
+        info_label = wx.StaticText(card, label="PP-OCRv6 ONNX Runtime")
         info_font = info_label.GetFont()
         info_font.SetWeight(wx.FONTWEIGHT_BOLD)
         info_label.SetFont(info_font)
         info_label.SetForegroundColour(TEXT_MAIN)
         cs.Add(info_label, 0, wx.ALL, 10)
 
-        hint = _hint_label(card, "screen_transalate_ocr.exe — ncnn inference engine")
+        hint = _hint_label(card, "PP-OCRv6_tiny_det_onnx / PP-OCRv6_tiny_rec_onnx — ONNX inference")
         cs.Add(hint, 0, wx.LEFT | wx.RIGHT, 10)
+
+        cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
         # ── Detection params ──
         det_label = wx.StaticText(card, label=tr("section.detection"))
@@ -586,27 +588,15 @@ class MainWindow(wx.Frame):
 
         cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
-        # ── Recognition filter params ──
+        # ── Recognition ──
         rec_label = wx.StaticText(card, label=tr("section.recognition"))
         rec_label.SetForegroundColour(TEXT_MUTED)
         cs.Add(rec_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
 
         rec_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._rec_char_thresh_input, rcs = _make_float_input(card, tr("field.rec_char_thresh"), cfg.ocr.rec_char_thresh)
-        rec_row.Add(rcs, 0, wx.RIGHT, 16)
-        self._rec_block_thresh_input, rbs = _make_float_input(card, tr("field.rec_block_thresh"), cfg.ocr.rec_block_thresh)
-        rec_row.Add(rbs, 0)
-        cs.Add(rec_row, 0, wx.ALL, 10)
-
-        cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
-
-        # ── Dictionary & Confidence ──
-        dict_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._dict_name_input, dns = _make_labeled_input(card, tr("field.dict_name"), cfg.ocr.dict_name, size=(90, -1))
-        dict_row.Add(dns, 0, wx.RIGHT, 16)
         self._min_conf_input, mcs = _make_float_input(card, tr("field.min_confidence"), cfg.ocr.min_confidence)
-        dict_row.Add(mcs, 0)
-        cs.Add(dict_row, 0, wx.ALL, 10)
+        rec_row.Add(mcs, 0)
+        cs.Add(rec_row, 0, wx.ALL, 10)
 
         card.SetSizer(cs)
         sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
@@ -1124,11 +1114,6 @@ class MainWindow(wx.Frame):
         except ValueError: pass
         try: cfg.ocr.det_binary_thresh = float(self._det_binary_thresh_input.GetValue())
         except ValueError: pass
-        try: cfg.ocr.rec_char_thresh = float(self._rec_char_thresh_input.GetValue())
-        except ValueError: pass
-        try: cfg.ocr.rec_block_thresh = float(self._rec_block_thresh_input.GetValue())
-        except ValueError: pass
-        cfg.ocr.dict_name = self._dict_name_input.GetValue().strip()
         try: cfg.ocr.min_confidence = float(self._min_conf_input.GetValue())
         except ValueError: pass
 
