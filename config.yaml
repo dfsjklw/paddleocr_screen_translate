@@ -23,7 +23,7 @@ ocr:
   det_unclip_ratio: 1.4
   # 启用 ONNX DirectML GPU 加速 (Windows 10+)
   # 启用前请确保已安装: pip install onnxruntime-directml
-  use_directml: false
+  use_directml: true
   # ── 通用参数 ──
   # Python 侧二次过滤最小置信度 (低于此值的结果丢弃)
   min_confidence: 0.5

@@ -8,13 +8,11 @@ keyboard>=0.13.5
 opencv-python>=4.8.0
 
 # OCR dependencies (ONNX PP-OCRv6)
-onnxruntime>=1.15.0
 pyclipper>=1.3.0.post4
 shapely>=2.0.0
 
 # Optional: DirectML GPU acceleration (Windows 10+, DirectX 12 GPU)
-# pip install onnxruntime-directml
-
+onnxruntime-directml>=1.15.0
 # Legacy paddleocr dependencies (no longer required — ONNX Runtime based)
 # paddleocr>=3.0.0
 # paddlepaddle>=3.0.0

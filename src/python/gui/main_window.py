@@ -266,6 +266,7 @@ class MainWindow(wx.Frame):
         self._single_in_progress = False
         self._region_in_progress = False
         self._pipeline_running = False
+        self._paused = False
 
         # Dynamic labels registry (for language switching)
         self._dynamic_labels: list[tuple[wx.Control, str, dict]] = []
@@ -312,7 +313,7 @@ class MainWindow(wx.Frame):
         self._btn_region.SetToolTip(tr("tooltip.region"))
         self._btn_clear.SetLabel(tr("btn.clear_overlay"))
         self._btn_clear.SetToolTip(tr("tooltip.clear_overlay"))
-        if self._btn_pause.IsEnabled() and self._btn_pause.GetLabel() == tr("btn.resume"):
+        if self._paused:
             self._btn_pause.SetLabel(tr("btn.resume"))
         else:
             self._btn_pause.SetLabel(tr("btn.pause"))
@@ -337,9 +338,17 @@ class MainWindow(wx.Frame):
         # Hotkey hint
         self._refresh_hotkey_label()
 
-        # Status bar
-        self._status_dot.SetState("stopped")
-        self._status_text.SetLabel(tr("status.ready"))
+        # Status bar — 保留流水线运行状态
+        if self._pipeline_running:
+            if self._paused:
+                self._status_dot.SetState("paused")
+                self._status_text.SetLabel(tr("status.paused"))
+            else:
+                self._status_dot.SetState("running")
+                self._status_text.SetLabel(tr("status.running"))
+        else:
+            self._status_dot.SetState("stopped")
+            self._status_text.SetLabel(tr("status.ready"))
         self.Layout()
 
     def _update_downscale_button_label(self):
@@ -959,6 +968,8 @@ class MainWindow(wx.Frame):
     # ── Status Updates (thread-safe) ───────────────────────────────
 
     def update_status(self, status: str):
+        CORE_STATES = ("Running", "Paused", "Stopped", "Ready", "Initializing...")
+
         def _update():
             status_map = {
                 "Ready": tr("status.ready"),
@@ -968,7 +979,10 @@ class MainWindow(wx.Frame):
                 "Initializing...": tr("status.initializing"),
             }
 
-            if status.startswith("Single:"):
+            # ═══ 显示文本逻辑（所有状态都更新显示文本）═══
+            if status in status_map:
+                disp = status_map[status]
+            elif status.startswith("Single:"):
                 if status == "Single: initializing...":
                     disp = tr("status.single_init")
                 elif status == "Single: capturing...":
@@ -983,7 +997,10 @@ class MainWindow(wx.Frame):
                 elif status == "Single: init failed":
                     disp = tr("status.single_init_failed")
                     self._single_in_progress = False
-                elif status == "Region: initializing...":
+                else:
+                    disp = status
+            elif status.startswith("Region:"):
+                if status == "Region: initializing...":
                     disp = tr("status.region_init")
                 elif status == "Region: capturing...":
                     disp = tr("status.region_capturing")
@@ -999,35 +1016,36 @@ class MainWindow(wx.Frame):
                     self._region_in_progress = False
                 elif status == "Region: selecting":
                     disp = tr("status.region_selecting")
-                elif status == "Overlay cleared":
-                    disp = tr("status.overlay_cleared")
                 else:
                     disp = status
-                self._status_text.SetLabel(disp)
+            elif status == "Overlay cleared":
+                disp = tr("status.overlay_cleared")
             elif status.startswith("Error:"):
                 error = status[len("Error:"):].strip()
                 disp = tr("status.error", error=error)
-                self._status_text.SetLabel(disp)
             elif status.startswith("Warning:"):
-                self._status_text.SetLabel(status)
-            elif status in status_map:
-                self._status_text.SetLabel(status_map[status])
+                disp = status
             else:
-                self._status_text.SetLabel(status)
+                disp = status
 
-            is_running = status in ("Running", "Paused")
-            self._pipeline_running = is_running
-            self._btn_start.Enable(not is_running)
-            self._btn_pause.Enable(is_running)
-            self._btn_stop.Enable(is_running)
-            if status == "Paused":
-                self._btn_pause.SetLabel(tr("btn.resume"))
-                self._status_dot.SetState("paused")
-            elif status == "Running":
-                self._btn_pause.SetLabel(tr("btn.pause"))
-                self._status_dot.SetState("running")
-            else:
-                self._status_dot.SetState("stopped")
+            self._status_text.SetLabel(disp)
+
+            # ═══ 流水线状态管理（只在核心状态时更新按钮和状态点）═══
+            if status in CORE_STATES:
+                is_running = status in ("Running", "Paused")
+                self._pipeline_running = is_running
+                self._paused = (status == "Paused")
+                self._btn_start.Enable(not is_running)
+                self._btn_pause.Enable(is_running)
+                self._btn_stop.Enable(is_running)
+                if status == "Paused":
+                    self._btn_pause.SetLabel(tr("btn.resume"))
+                    self._status_dot.SetState("paused")
+                elif status == "Running":
+                    self._btn_pause.SetLabel(tr("btn.pause"))
+                    self._status_dot.SetState("running")
+                else:
+                    self._status_dot.SetState("stopped")
 
             self._btn_single.Enable(not self._single_in_progress)
             self._btn_region.Enable(not self._region_in_progress)
