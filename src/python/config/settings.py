@@ -39,8 +39,8 @@ class OcrConfig:
     engine: str = "onnx"                        # OCR 引擎: 当前仅支持 "onnx" (PP-OCRv6)
 
     # ── ONNX 引擎参数 ──
-    det_model_dir: str = "./PP-OCRv6_tiny_det_onnx"
-    rec_model_dir: str = "./PP-OCRv6_tiny_rec_onnx"
+    det_model_dir: str = "./PP-OCRv6_small_det_onnx"
+    rec_model_dir: str = "./PP-OCRv6_small_rec_onnx"
     det_limit_side: int = 960                   # 检测前长边缩放上限
     det_unclip_ratio: float = 1.4               # DB 后处理 unclip 系数
     use_directml: bool = False                  # 启用 ONNX DirectML GPU 加速 (Windows 10+)

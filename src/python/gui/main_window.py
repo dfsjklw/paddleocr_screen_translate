@@ -578,7 +578,7 @@ class MainWindow(wx.Frame):
         info_label.SetForegroundColour(TEXT_MAIN)
         cs.Add(info_label, 0, wx.ALL, 10)
 
-        hint = _hint_label(card, "PP-OCRv6_tiny_det_onnx / PP-OCRv6_tiny_rec_onnx — ONNX inference")
+        hint = _hint_label(card, "PP-OCRv6_small_det_onnx / PP-OCRv6_small_rec_onnx — ONNX inference")
         cs.Add(hint, 0, wx.LEFT | wx.RIGHT, 10)
 
         cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)

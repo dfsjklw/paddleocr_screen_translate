@@ -97,8 +97,8 @@ Pipeline Thread (daemon)
 
 | 模型 | 目录 | 说明 |
 |---|---|---|
-| PP-OCRv6 检测 | `PP-OCRv6_tiny_det_onnx/` | ONNX 格式文本检测模型 |
-| PP-OCRv6 识别 | `PP-OCRv6_tiny_rec_onnx/` | ONNX 格式文本识别模型 |
+| PP-OCRv6 检测 | `PP-OCRv6_small_det_onnx/` | ONNX 格式文本检测模型 |
+| PP-OCRv6 识别 | `PP-OCRv6_small_rec_onnx/` | ONNX 格式文本识别模型 |
 
 ONNX 模型可直接使用 ONNX Runtime 推理，无需安装 PaddlePaddle 框架。
 
@@ -154,7 +154,7 @@ pip install -r requirements.txt
 # pip install onnxruntime-directml
 
 # 5. 下载模型文件
-# 将 PP-OCRv6_tiny_det_onnx/、PP-OCRv6_tiny_rec_onnx/ 放入项目根目录
+# 将 PP-OCRv6_small_det_onnx/、PP-OCRv6_small_rec_onnx/ 放入项目根目录
 
 # 6. 启动 llama.cpp server（翻译后端）
 llama-server -m <your-model>.gguf --port 8080
@@ -172,8 +172,8 @@ python main.py
 ```yaml
 ocr:
   engine: "ppocr_onnx"                # ONNX Runtime 引擎
-  det_model_dir: "./PP-OCRv6_tiny_det_onnx"
-  rec_model_dir: "./PP-OCRv6_tiny_rec_onnx"
+  det_model_dir: "./PP-OCRv6_small_det_onnx"
+  rec_model_dir: "./PP-OCRv6_small_rec_onnx"
   use_directml: false                 # 启用 DirectML GPU 加速 (需 pip install onnxruntime-directml)
 
 translator:
@@ -226,8 +226,8 @@ screen_translate/
 │   ├── pipeline/pipeline.py             # 翻译流水线调度
 │   └── translator/translator.py         # llama.cpp HTTP 客户端
 │
-├── PP-OCRv6_tiny_det_onnx/              # OCRv6 检测模型 (ONNX)
-├── PP-OCRv6_tiny_rec_onnx/              # OCRv6 识别模型 (ONNX)
+├── PP-OCRv6_small_det_onnx/              # OCRv6 检测模型 (ONNX)
+├── PP-OCRv6_small_rec_onnx/              # OCRv6 识别模型 (ONNX)
 ├── config.yaml                          # 用户配置
 └── README.md
 ```

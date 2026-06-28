@@ -1,7 +1,7 @@
 """
 ppocr_onnx_engine.py — 基于 ONNX Runtime 的 PP-OCRv6 引擎
 
-直接加载 PP-OCRv6_tiny_det_onnx / PP-OCRv6_tiny_rec_onnx 目录下的
+直接加载 PP-OCRv6_small_det_onnx / PP-OCRv6_small_rec_onnx 目录下的
 ONNX 模型进行文字检测与识别。
 
 接口规范：TextBox / OcrOutput / init / process。
@@ -159,10 +159,10 @@ class PpOcrOnnxEngine:
 
         # 模型目录
         self._det_model_dir = config.resolve_path(
-            getattr(self._ocr_cfg, 'det_model_dir', './PP-OCRv6_tiny_det_onnx')
+            getattr(self._ocr_cfg, 'det_model_dir', './PP-OCRv6_small_det_onnx')
         )
         self._rec_model_dir = config.resolve_path(
-            getattr(self._ocr_cfg, 'rec_model_dir', './PP-OCRv6_tiny_rec_onnx')
+            getattr(self._ocr_cfg, 'rec_model_dir', './PP-OCRv6_small_rec_onnx')
         )
 
         # 参数
