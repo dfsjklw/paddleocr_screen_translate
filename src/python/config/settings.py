@@ -10,7 +10,7 @@ from typing import Any
 # settings.py → config → python → src → project_root
 # 兼容 PyInstaller 打包：frozen 时用 sys._MEIPASS，否则基于 __file__ 推算
 if getattr(sys, 'frozen', False):
-    _BASE_DIR = sys._MEIPASS
+    _BASE_DIR = os.path.dirname(sys.executable)  # 打包后路径相对于 EXE 目录（模型、config.yaml 都在此处）
 else:
     _BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -93,6 +93,13 @@ class LoggingConfig:
 
 
 @dataclass
+class ConsoleLoggingConfig:
+    enabled: bool = True
+    log_dir: str = "./logs"
+    max_days: int = 7
+
+
+@dataclass
 class AppConfig:
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     ocr: OcrConfig = field(default_factory=OcrConfig)
@@ -103,6 +110,7 @@ class AppConfig:
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     gui: GuiConfig = field(default_factory=GuiConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    console_logging: ConsoleLoggingConfig = field(default_factory=ConsoleLoggingConfig)
 
     def resolve_path(self, path: str) -> str:
         """将相对路径解析为绝对路径（相对于项目根目录）"""

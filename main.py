@@ -9,7 +9,7 @@ import os
 # 确保项目根目录在 sys.path 中
 # 兼容 PyInstaller 打包：frozen 时用 sys._MEIPASS，否则用 __file__
 if getattr(sys, 'frozen', False):
-    _BASE_DIR = sys._MEIPASS
+    _BASE_DIR = os.path.dirname(sys.executable)  # 打包后 config.yaml / 模型目录在 EXE 同级
 else:
     _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if _BASE_DIR not in sys.path:
@@ -25,8 +25,9 @@ from src.python.i18n import init_locale
 
 
 class App(wx.App):
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig, console_logger=None):
         self._config = config
+        self._console_logger = console_logger
         self._pipeline: Pipeline = None
         self._overlay: OverlayWindow = None
         self._tray: TrayIcon = None
@@ -47,6 +48,7 @@ class App(wx.App):
             config,
             on_toggle_pause=self._toggle_pause,
             on_start=self._start_pipeline,
+            console_log_dir=self._console_logger.log_dir if self._console_logger else None,
             on_stop=self._stop_pipeline,
             on_single_translate=self._single_translate,
             on_single_start=self._on_single_start,
@@ -202,13 +204,49 @@ class App(wx.App):
     def _on_close(self, event):
         """清理并退出"""
         self._pipeline.shutdown()
+
+        # 清理键盘全局钩子 & 线程
+        if self._window:
+            self._window._unbind_hotkeys()
+        try:
+            import keyboard
+            keyboard.unhook_all()
+        except Exception:
+            pass
+
+        # 销毁覆盖层窗口（必须显式销毁，否则 wx.App 主循环不会退出）
+        if self._overlay:
+            self._overlay.hide_overlay()
+            self._overlay.Destroy()
+            self._overlay = None
+
+        # 销毁系统托盘
         if self._tray:
             self._tray.RemoveIcon()
             self._tray.Destroy()
+
+        # 强制退出主循环（确保进程完全退出）
+        wx.CallAfter(self.ExitMainLoop)
         event.Skip()
 
 
 def main():
+    # ── 控制台日志捕获（必须在任何 print 之前启动） ──
+    _console_logger = None
+    try:
+        config_path = os.path.join(_BASE_DIR, "config.yaml")
+        config = load_config(config_path)
+
+        if config.console_logging.enabled:
+            from src.python.logger.console_logger import ConsoleLogger
+            # ConsoleLogger 使用内置路径解析，正确处理打包后 EXE 目录
+            _console_logger = ConsoleLogger(max_days=config.console_logging.max_days)
+            _console_logger.start()
+    except Exception as e:
+        print(f"[Main] ConsoleLogger init failed: {e}", file=sys.__stderr__)
+        config_path = os.path.join(_BASE_DIR, "config.yaml")
+        config = load_config(config_path)
+
     # DPI 感知 (Win10+)
     if sys.platform == "win32":
         try:
@@ -218,16 +256,13 @@ def main():
         except Exception:
             pass
 
-    # 加载配置
-    config_path = os.path.join(_BASE_DIR, "config.yaml")
-    config = load_config(config_path)
     print(f"[Main] Config loaded: source={config.source_lang}, target={config.target_lang}")
     print(f"[Main] Translator: {config.translator.backend} @ {config.translator.llama.url}")
     print(f"[Main] Cycle interval: {config.pipeline.cycle_interval}s")
     print(f"[Main] UI language: {config.gui.ui_language}")
 
     # 启动应用
-    app = App(config)
+    app = App(config, console_logger=_console_logger)
     app.MainLoop()
 
 

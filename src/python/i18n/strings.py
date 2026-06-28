@@ -318,6 +318,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Enable cycle logging",
         "zh": "启用周期日志",
     },
+    "cb.console_logging": {
+        "en": "Enable console log capture",
+        "zh": "启用控制台日志捕获",
+    },
+    "btn.open_log_folder": {
+        "en": "Open Log Folder",
+        "zh": "打开日志文件夹",
+    },
+    "label.console_log_path": {
+        "en": "Console log: {path}",
+        "zh": "控制台日志: {path}",
+    },
+    "label.console_log_hint": {
+        "en": "All console output (print, errors, stack traces) is saved to this file.\nUse it to diagnose crashes in the packaged EXE.",
+        "zh": "所有控制台输出（print、错误、堆栈追踪）都保存在此文件中。\n用于排查打包后 EXE 的运行时崩溃问题。",
+    },
 
     # ── 工具提示 ──
     "tooltip.single": {
@@ -449,6 +465,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "result.trans_header": {
         "en": "Cycle #{id} — Translation ({count} items) | Total: {total}ms",
         "zh": "周期 #{id} — 翻译 ({count} 项) | 总计: {total}ms",
+    },
+
+    # ── 控制台日志 ──
+    "dlg.log_dir_not_found": {
+        "en": "Log directory not found:\n{path}",
+        "zh": "日志目录不存在:\n{path}",
+    },
+    "dlg.open_folder_error": {
+        "en": "Failed to open log folder:\n{error}",
+        "zh": "打开日志文件夹失败:\n{error}",
     },
 
     # ── 划屏翻译区域选择器 ──

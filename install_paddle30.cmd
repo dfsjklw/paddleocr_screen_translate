@@ -1,3 +1,4 @@
+
 @echo off
 C:\Users\lol\AppData\Local\Programs\Python\Python312\python.exe -m pip install paddlepaddle==3.0.0
 if %ERRORLEVEL% EQU 0 (

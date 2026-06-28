@@ -238,6 +238,7 @@ class MainWindow(wx.Frame):
         on_toggle_pause: Callable[[], None],
         on_start: Callable[[], None],
         on_stop: Callable[[], None],
+        console_log_dir: str | None = None,
         on_single_translate: Optional[Callable[[], None]] = None,
         on_single_start: Optional[Callable[[], None]] = None,
         on_single_done: Optional[Callable[[], None]] = None,
@@ -250,6 +251,7 @@ class MainWindow(wx.Frame):
     ):
         super().__init__(None, title=tr("app.title"), size=(520, 660))
         self._config = config
+        self._console_log_dir = console_log_dir
         self._on_toggle = on_toggle_pause
         self._on_start = on_start
         self._on_stop = on_stop
@@ -325,6 +327,7 @@ class MainWindow(wx.Frame):
         # Toggle labels
         self._tb_exclude.SetLabel(tr("cb.exclude_capture"))
         self._tb_log.SetLabel(tr("cb.logging"))
+        self._tb_console_log.SetLabel(tr("cb.console_logging"))
 
         # Downscale button
         self._update_downscale_button_label()
@@ -335,6 +338,12 @@ class MainWindow(wx.Frame):
                 ctrl.SetLabel(tr(key, **kwargs))
             elif isinstance(ctrl, wx.Button):
                 ctrl.SetLabel(tr(key, **kwargs))
+
+        # Console log labels
+        log_dir = self._console_log_dir or self._config.resolve_path(self._config.console_logging.log_dir)
+        self._console_log_path_label.SetLabel(tr("label.console_log_path", path=log_dir))
+        self._console_log_hint_label.SetLabel(tr("label.console_log_hint"))
+        self._btn_open_log_folder.SetLabel(tr("btn.open_log_folder"))
 
         # Hotkey hint
         self._refresh_hotkey_label()
@@ -790,18 +799,55 @@ class MainWindow(wx.Frame):
         sz = wx.BoxSizer(wx.VERTICAL)
         outer_pad = 12
 
-        card = wx.Panel(page)
-        card.SetBackgroundColour(WHITE)
-        cs = wx.BoxSizer(wx.VERTICAL)
+        # ── Card 1: Cycle Logging ──
+        card1 = wx.Panel(page)
+        card1.SetBackgroundColour(WHITE)
+        cs1 = wx.BoxSizer(wx.VERTICAL)
 
-        self._tb_log = ToggleSwitch(card, label=tr("cb.logging"))
+        self._tb_log = ToggleSwitch(card1, label=tr("cb.logging"))
         self._tb_log.SetValue(cfg.logging.enabled)
         self._tb_log.Bind(wx.EVT_CHECKBOX, self._on_logging_toggle)
         self._toggles.append(self._tb_log)
-        cs.Add(self._tb_log, 0, wx.ALL, 10)
+        cs1.Add(self._tb_log, 0, wx.ALL, 10)
 
-        card.SetSizer(cs)
-        sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
+        card1.SetSizer(cs1)
+        sz.Add(card1, 0, wx.EXPAND | wx.ALL, outer_pad)
+        sz.AddSpacer(4)
+
+        # ── Card 2: Console Logging ──
+        card2 = wx.Panel(page)
+        card2.SetBackgroundColour(WHITE)
+        cs2 = wx.BoxSizer(wx.VERTICAL)
+
+        self._tb_console_log = ToggleSwitch(card2, label=tr("cb.console_logging"))
+        self._tb_console_log.SetValue(cfg.console_logging.enabled)
+        self._tb_console_log.Bind(wx.EVT_CHECKBOX, self._on_console_logging_toggle)
+        self._toggles.append(self._tb_console_log)
+        cs2.Add(self._tb_console_log, 0, wx.ALL, 10)
+
+        # 日志路径信息
+        log_dir = self._console_log_dir or cfg.resolve_path(cfg.console_logging.log_dir)
+        self._console_log_path_label = _hint_label(
+            card2, tr("label.console_log_path", path=log_dir)
+        )
+        cs2.Add(self._console_log_path_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # 功能说明
+        self._console_log_hint_label = _hint_label(card2, tr("label.console_log_hint"))
+        cs2.Add(self._console_log_hint_label, 0, wx.LEFT | wx.RIGHT, 10)
+
+        # 打开文件夹按钮
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        btn_row.AddStretchSpacer(1)
+        self._btn_open_log_folder = _make_btn(card2, tr("btn.open_log_folder"), size=(150, 32))
+        self._btn_open_log_folder.Bind(wx.EVT_BUTTON, self._on_open_log_folder)
+        btn_row.Add(self._btn_open_log_folder, 0, wx.ALL, 5)
+        btn_row.AddStretchSpacer(1)
+        cs2.Add(btn_row, 0, wx.EXPAND | wx.ALL, 10)
+
+        card2.SetSizer(cs2)
+        sz.Add(card2, 0, wx.EXPAND | wx.ALL, outer_pad)
+
         page.SetSizer(sz)
 
     # ── Tab: Results ───────────────────────────────────────────────
@@ -1178,6 +1224,7 @@ class MainWindow(wx.Frame):
             cfg.gui.hotkey_region_translate = self._hotkey_region_input.GetValue().strip()
             cfg.gui.hotkey_clear_overlay = self._hotkey_clear_input.GetValue().strip()
 
+        cfg.console_logging.enabled = self._tb_console_log.GetValue()
         cfg.gui.ui_language = self._locale.lang
 
     # ── Public Getters ─────────────────────────────────────────────
@@ -1205,6 +1252,29 @@ class MainWindow(wx.Frame):
 
     def _on_logging_toggle(self, event):
         self._config.logging.enabled = self._tb_log.GetValue()
+
+    def _on_console_logging_toggle(self, event):
+        self._config.console_logging.enabled = self._tb_console_log.GetValue()
+
+    def _on_open_log_folder(self, event):
+        """在资源管理器中打开日志文件夹"""
+        log_dir = self._console_log_dir or self._config.resolve_path(self._config.console_logging.log_dir)
+        try:
+            import os
+            if os.path.isdir(log_dir):
+                os.startfile(log_dir)
+            else:
+                wx.MessageBox(
+                    tr("dlg.log_dir_not_found", path=log_dir),
+                    tr("dlg.warning_title"),
+                    wx.OK | wx.ICON_WARNING,
+                )
+        except Exception as e:
+            wx.MessageBox(
+                tr("dlg.open_folder_error", error=e),
+                tr("dlg.error_title"),
+                wx.OK | wx.ICON_ERROR,
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════
