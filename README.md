@@ -95,12 +95,29 @@ Pipeline Thread (daemon)
 
 ### OCR 模型 (ONNX)
 
-| 模型 | 目录 | 说明 |
-|---|---|---|
-| PP-OCRv6 检测 | `PP-OCRv6_small_det_onnx/` | ONNX 格式文本检测模型 |
-| PP-OCRv6 识别 | `PP-OCRv6_small_rec_onnx/` | ONNX 格式文本识别模型 |
+| 变体 | 检测模型 | 识别模型 | 大小 (检测+识别) | 说明 |
+|---|---|---|---|---|
+| **tiny** | `PP-OCRv6_tiny_det_onnx/` | `PP-OCRv6_tiny_rec_onnx/` | ~1.7 MB + ~4.3 MB | 轻量快速，适合低配设备 |
+| **small** | `PP-OCRv6_small_det_onnx/` | `PP-OCRv6_small_rec_onnx/` | ~9.4 MB + ~20.2 MB | 高精度（默认） |
+| **medium** | `PP-OCRv6_medium_det_onnx/` | `PP-OCRv6_medium_rec_onnx/` | — | 精度/速度平衡（需自行下载） |
 
 ONNX 模型可直接使用 ONNX Runtime 推理，无需安装 PaddlePaddle 框架。
+
+**切换模型**：编辑 `config.yaml`，修改 `det_model_dir` 和 `rec_model_dir` 为对应目录路径即可：
+
+```yaml
+# 使用 tiny 轻量模型
+ocr:
+  det_model_dir: "./PP-OCRv6_tiny_det_onnx"
+  rec_model_dir: "./PP-OCRv6_tiny_rec_onnx"
+
+# 使用 small 高精度模型
+ocr:
+  det_model_dir: "./PP-OCRv6_small_det_onnx"
+  rec_model_dir: "./PP-OCRv6_small_rec_onnx"
+```
+
+重启应用后生效。可在 GUI 的 OCR 选项卡中查看当前加载的模型名称。
 
 ### 旧版模型 (PaddleOCR / PaddleX)
 
@@ -171,10 +188,10 @@ python main.py
 
 ```yaml
 ocr:
-  engine: "ppocr_onnx"                # ONNX Runtime 引擎
-  det_model_dir: "./PP-OCRv6_small_det_onnx"
-  rec_model_dir: "./PP-OCRv6_small_rec_onnx"
-  use_directml: false                 # 启用 DirectML GPU 加速 (需 pip install onnxruntime-directml)
+  engine: "onnx"                          # ONNX Runtime 引擎
+  det_model_dir: "./PP-OCRv6_small_det_onnx"  # 可换为 tiny_det_onnx
+  rec_model_dir: "./PP-OCRv6_small_rec_onnx"  # 可换为 tiny_rec_onnx
+  use_directml: false                     # 启用 DirectML GPU 加速 (需 pip install onnxruntime-directml)
 
 translator:
   backend: "llama"

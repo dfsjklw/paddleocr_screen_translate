@@ -13,6 +13,7 @@ All public API and business logic preserved from the original implementation.
 import wx
 import wx.adv
 import sys
+import os
 from typing import Optional, Callable
 
 from ..config.settings import AppConfig
@@ -578,7 +579,10 @@ class MainWindow(wx.Frame):
         info_label.SetForegroundColour(TEXT_MAIN)
         cs.Add(info_label, 0, wx.ALL, 10)
 
-        hint = _hint_label(card, "PP-OCRv6_small_det_onnx / PP-OCRv6_small_rec_onnx — ONNX inference")
+        # 动态显示实际加载的模型路径（来自配置文件）
+        det_name = os.path.basename(cfg.ocr.det_model_dir.rstrip("/\\"))
+        rec_name = os.path.basename(cfg.ocr.rec_model_dir.rstrip("/\\"))
+        hint = _hint_label(card, f"{det_name} / {rec_name} — ONNX inference")
         cs.Add(hint, 0, wx.LEFT | wx.RIGHT, 10)
 
         cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)

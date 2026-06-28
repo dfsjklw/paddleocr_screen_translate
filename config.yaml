@@ -14,8 +14,10 @@ ocr:
   engine: "onnx"
   # ── ONNX 引擎参数 (engine: "onnx") ──
   # 检测模型目录 (含 inference.onnx + inference.yml)
+  # 可用模型变体: small (默认), tiny (轻量快速), medium (平衡)
   det_model_dir: "./PP-OCRv6_small_det_onnx"
   # 识别模型目录 (含 inference.onnx + inference.yml)
+  # 可用模型变体: small (默认), tiny (轻量快速), medium (平衡)
   rec_model_dir: "./PP-OCRv6_small_rec_onnx"
   # 检测前长边缩放上限 (保持宽高比缩放)
   det_limit_side: 960
