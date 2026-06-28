@@ -256,11 +256,44 @@ screen_translate/
 使用 PyInstaller 打包为独立 .exe（无需 Python 环境）：
 
 ```bash
-python package.py --name ScreenTranslate
-# 输出: dist/ScreenTranslate.exe
+# 1. 安装 PyInstaller
+pip install pyinstaller
+
+# 2. 运行打包脚本（自动收集依赖、复制模型文件）
+python package.py
+
+# 输出: dist/ScreenTranslate/ScreenTranslate.exe
 ```
 
-打包时自动收集 ONNX Runtime 和模型资源文件。
+打包完成后，输出目录结构：
+
+```
+dist/ScreenTranslate/
+├── ScreenTranslate.exe          # 主程序
+├── config.yaml                  # 配置文件（可编辑）
+├── PP-OCRv6_small_det_onnx/     # 检测模型
+├── PP-OCRv6_small_rec_onnx/     # 识别模型
+├── PP-OCRv6_tiny_det_onnx/      # 轻量检测模型（可选）
+├── PP-OCRv6_tiny_rec_onnx/      # 轻量识别模型（可选）
+└── ...  (运行时库文件)
+```
+
+**注意事项：**
+- 模型文件不嵌入 exe 内部，而是复制到 exe 同目录，方便切换模型变体
+- 可直接编辑 `dist/ScreenTranslate/config.yaml` 切换模型或修改参数
+- 如需重新打包，运行 `python package.py` 即可
+
+### 手动打包（不依赖 package.py）
+
+如需要自定义打包参数，也可直接调用 PyInstaller：
+
+```bash
+pyinstaller --noconfirm --clean --name ScreenTranslate --noconsole ^
+  --add-data "config.yaml;." ^
+  --hidden-import yaml --hidden-import onnxruntime --hidden-import pyclipper ^
+  --hidden-import keyboard --hidden-import PIL --hidden-import PIL.ImageGrab ^
+  main.py
+```
 
 ---
 
