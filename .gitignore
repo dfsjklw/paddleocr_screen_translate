@@ -41,6 +41,9 @@ easyocr_models/
 *.zip
 *.7z
 
+*.onnx
+inference.yml
+
 # ── C++ 构建输出 ──
 Release/
 x64/
