@@ -147,17 +147,24 @@ class OverlayWindow(wx.Frame):
         # 缓存字体对象
         self._cached_font: Optional[wx.Font] = None
 
-        # 获取屏幕尺寸
-        screen_w = wx.Display(0).GetGeometry().GetWidth() if wx.Display.GetCount() > 0 else 1920
-        screen_h = wx.Display(0).GetGeometry().GetHeight() if wx.Display.GetCount() > 0 else 1080
+        # 获取工作区尺寸（排除任务栏区域，防止全屏置顶窗口导致任务栏自动隐藏）
+        if wx.Display.GetCount() > 0:
+            work_area = wx.Display(0).GetClientArea()
+            screen_w = work_area.GetWidth()
+            screen_h = work_area.GetHeight()
+            screen_x = work_area.GetX()
+            screen_y = work_area.GetY()
+        else:
+            screen_w, screen_h = 1920, 1080
+            screen_x, screen_y = 0, 0
         self._screen_w = screen_w
         self._screen_h = screen_h
 
-        # 创建全屏无边框窗口
+        # 创建工作区大小的无边框窗口
         super().__init__(
             None,
             title="ScreenTranslate Overlay",
-            pos=(0, 0),
+            pos=(screen_x, screen_y),
             size=(screen_w, screen_h),
             style=wx.NO_BORDER | wx.STAY_ON_TOP | wx.FRAME_NO_TASKBAR,
         )
@@ -165,8 +172,7 @@ class OverlayWindow(wx.Frame):
         # 设置窗口扩展样式
         self._setup_window()
 
-        # 注意：不立即显示窗口，以免全屏置顶窗口覆盖任务栏区域导致 Windows 任务栏消失。
-        # 窗口仅在 set_items() 收到有效内容时才自动显示。
+        # 窗口不立即显示，由 pipeline 生命周期控制显示时机
 
     def _setup_window(self):
         """设置窗口扩展样式"""
@@ -212,18 +218,20 @@ class OverlayWindow(wx.Frame):
     def _set_items_impl(self, items: list[OverlayItem]):
         """（主线程）原子替换覆盖项并重绘"""
         self._items = items
-        if items and not self.IsShown():
-            self.Show(True)
-        elif not items and self.IsShown():
-            self.Show(False)
-            return
+        if not self.IsShown():
+            if items:
+                self.Show(True)
+            else:
+                return  # 窗口未显示且无内容，无需操作
+        # 窗口已显示：有内容时绘制，无内容时渲染透明覆盖层
         self._render_to_layered_window()
 
     def _clear_impl(self):
-        """（主线程）清除覆盖项并重绘"""
+        """（主线程）清除覆盖项 — 渲染透明覆盖层而非隐藏窗口"""
         self._items = []
         if self.IsShown():
-            self.Show(False)
+            # 渲染全透明覆盖层，避免隐藏/显示窗口触发 Windows 任务栏逻辑
+            self._render_to_layered_window()
 
     def _show_impl(self):
         """（主线程）显示覆盖层"""
