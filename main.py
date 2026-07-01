@@ -55,6 +55,8 @@ class App(wx.App):
             on_single_done=self._on_single_done,
             on_region_translate=self._region_translate,
             on_clear_overlay=self._clear_overlay,
+            on_hold_hide_press=self._on_hold_hide_press,
+            on_hold_hide_release=self._on_hold_hide_release,
             on_region_start=self._on_region_start,
             on_region_done=self._on_region_done,
         )
@@ -158,9 +160,17 @@ class App(wx.App):
         self._on_status("Ready")
 
     def _clear_overlay(self):
-        """一键清除屏幕覆盖层"""
+        """一键清除屏幕覆盖层（流水线继续运行，下一周期自动重绘）"""
         self._overlay.clear()
         self._on_status("Overlay cleared")
+
+    def _on_hold_hide_press(self):
+        """按住隐藏覆盖层（热键按下 / 按钮按下）"""
+        self._overlay.push_to_hide()
+
+    def _on_hold_hide_release(self):
+        """松开恢复覆盖层（热键松开 / 按钮松开）"""
+        self._overlay.release_show()
 
     def _on_region_start(self):
         """划屏翻译开始"""

@@ -44,6 +44,7 @@ class OcrConfig:
     det_limit_side: int = 960                   # 检测前长边缩放上限
     det_unclip_ratio: float = 1.4               # DB 后处理 unclip 系数
     use_directml: bool = False                  # 启用 ONNX DirectML GPU 加速 (Windows 10+)
+    rec_batch_size: int = 0                     # 识别 batch 大小: 0=全部打包, 1=逐张, N=每N个一组
 
     # ── 通用参数 ──
     min_confidence: float = 0.5                 # 最小识别置信度 (Python 侧二次过滤)
@@ -83,6 +84,7 @@ class GuiConfig:
     hotkey_single_translate: str = "F8"
     hotkey_region_translate: str = "F7"
     hotkey_clear_overlay: str = "F6"
+    hotkey_hold_hide: str = "F5"
 
 
 @dataclass

@@ -48,6 +48,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Clear",
         "zh": "清除覆盖层",
     },
+    "btn.hold_hide": {
+        "en": "Peek",
+        "zh": "按住隐藏",
+    },
+    "btn.hold_hide_release": {
+        "en": "Show",
+        "zh": "恢复显示",
+    },
     "btn.lang_toggle": {
         "en": "中",
         "zh": "EN",
@@ -308,6 +316,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Clear Overlay:",
         "zh": "清除覆盖层:",
     },
+    "field.hotkey_hold_hide": {
+        "en": "Hold Hide:",
+        "zh": "按住隐藏:",
+    },
 
     # ── 复选框 ──
     "cb.exclude_capture": {
@@ -348,11 +360,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Clear all overlay text from the screen",
         "zh": "清除屏幕上所有覆盖层文字",
     },
+    "tooltip.hold_hide": {
+        "en": "Hold to hide overlay, release to show (or click to toggle)",
+        "zh": "按住隐藏覆盖层，松开恢复（也可点击切换）",
+    },
 
     # ── 快捷键提示 ──
     "hotkey.label": {
-        "en": "Hotkeys: {single} = Single, {region} = Region, {clear} = Clear, {pause} = Pause, {quit} = Quit",
-        "zh": "快捷键: {single} = 单次翻译, {region} = 划屏翻译, {clear} = 清除覆盖层, {pause} = 暂停, {quit} = 退出",
+        "en": "Hotkeys: {single}=Single, {region}=Region, {clear}=Clear, {pause}=Pause, {holdhide}=Hide, {quit}=Quit",
+        "zh": "快捷键: {single}=单次, {region}=划屏, {clear}=清除, {pause}=暂停, {holdhide}=按住隐藏, {quit}=退出",
     },
 
     # ── 对话框消息 ──

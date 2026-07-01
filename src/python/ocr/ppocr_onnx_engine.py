@@ -180,6 +180,10 @@ class PpOcrOnnxEngine:
         self._blank_id = 0
         self._initialized = False
 
+        # 识别批量推理参数
+        self._rec_batch_size = getattr(self._ocr_cfg, 'rec_batch_size', 0)
+        self._rec_downsample_ratio = 4.0   # 将在 init() 中通过 dummy 推理校准
+
     # ── 初始化 ──────────────────────────────
 
     def init(self) -> bool:
@@ -246,6 +250,20 @@ class PpOcrOnnxEngine:
         print(f"[OCR]   Rec model: {rec_onnx}")
         print(f"[OCR]   Char dict size: {len(char_dict)}")
         print(f"[OCR]   GPU DirectML: {'enabled' if self._use_directml else 'disabled (CPU)'}")
+        print(f"[OCR]   Rec batch size: {self._rec_batch_size} (0 = all)")
+
+        # ── 用 dummy 推理校准下采样比率 ──
+        try:
+            dummy = np.zeros((1, 3, 48, 16), dtype=np.float32)
+            out = self._rec_session.run(
+                [self._rec_session.get_outputs()[0].name],
+                {self._rec_session.get_inputs()[0].name: dummy}
+            )[0]
+            self._rec_downsample_ratio = 16.0 / out.shape[1]
+            print(f"[OCR]   Rec downsample ratio: {self._rec_downsample_ratio:.2f}")
+        except Exception as e:
+            print(f"[OCR]   WARN: downsample ratio calc failed, using default 4.0 — {e}")
+
         return True
 
     # ── 主 OCR 方法 ─────────────────────────
@@ -375,30 +393,69 @@ class PpOcrOnnxEngine:
         self, img: np.ndarray, polys: List[np.ndarray]
     ) -> List[Tuple[str, float]]:
         """
-        批量识别文本框
+        批量识别文本框（支持真 batch 推理）
+
+        流程：全部 crop 预处理 → 按 rec_batch_size 分组 →
+              每组 pad 到相同宽度 → 一次 session.run() → 按实际宽度截断解码
+
         Returns: [(text, confidence), ...]
         """
         if not polys:
             return []
 
-        # 逐个 crop、预处理，然后拼接 batch
-        rec_inputs = []
-        for poly in polys:
+        # ── 1. 预处理所有有效 crop ──
+        valid = []  # [(orig_index, tensor), ...]
+        for i, poly in enumerate(polys):
             crop = _get_rotate_crop_image(img, poly)
             if crop is None or crop.shape[0] < 2 or crop.shape[1] < 2:
-                rec_inputs.append(None)
                 continue
-            tensor = self._rec_preprocess(crop)
-            rec_inputs.append(tensor)
+            tensor = self._rec_preprocess(crop)  # [1, 3, 48, W]
+            valid.append((i, tensor))
 
-        results = []
-        # 逐个推理（后续可优化为真 batch）
-        for tensor in rec_inputs:
-            if tensor is None:
-                results.append(("", 0.0))
-                continue
-            text, conf = self._rec_infer_single(tensor)
-            results.append((text, conf))
+        results = [("", 0.0)] * len(polys)
+        if not valid:
+            return results
+
+        # ── 2. 按配置确定每组大小 ──
+        # rec_batch_size: 0 = 全部打包, 1 = 逐张, N = 每 N 个一组
+        group_size = self._rec_batch_size
+        if group_size <= 0:
+            group_size = len(valid)
+
+        # ── 3. 逐组 batch 推理 ──
+        input_name = self._rec_session.get_inputs()[0].name
+        output_name = self._rec_session.get_outputs()[0].name
+
+        for start in range(0, len(valid), group_size):
+            group = valid[start:start + group_size]
+            indices, tensors = zip(*group)
+
+            # 各 tensor 宽度及对应预期输出长度
+            widths = [t.shape[3] for t in tensors]
+            expected_lens = [int(w / self._rec_downsample_ratio) for w in widths]
+            max_w = max(widths)
+
+            # Padding 到组内最大宽度 → 拼接为真 batch
+            batch_parts = []
+            for t in tensors:
+                if t.shape[3] < max_w:
+                    pad_w = max_w - t.shape[3]
+                    t = np.pad(t, ((0,0), (0,0), (0,0), (0, pad_w)),
+                               mode='constant', constant_values=0)
+                batch_parts.append(t)
+            batched = np.concatenate(batch_parts, axis=0)  # [N, 3, 48, max_w]
+
+            # 一次推理
+            preds = self._rec_session.run([output_name], {input_name: batched})[0]
+            # preds shape: [N, max_seq_len, num_classes]
+
+            # 解码，每个按实际宽度截断
+            for j, orig_idx in enumerate(indices):
+                raw = preds[j]
+                # 截断到预期长度，去除 padding 区域可能的 RNN 状态泄露
+                seq = raw[:expected_lens[j]]
+                text, conf = self._ctc_decode(seq)
+                results[orig_idx] = (text, conf)
 
         return results
 
@@ -419,16 +476,10 @@ class PpOcrOnnxEngine:
         tensor = np.expand_dims(tensor, axis=0)  # [1, 3, 48, W]
         return tensor
 
-    def _rec_infer_single(self, tensor: np.ndarray) -> Tuple[str, float]:
-        """单个 crop 的识别推理 + CTC 解码"""
-        input_name = self._rec_session.get_inputs()[0].name
-        output_name = self._rec_session.get_outputs()[0].name
-        pred = self._rec_session.run([output_name], {input_name: tensor})[0]
-
-        # pred shape: [1, seq_len, num_classes]
-        # CTC argmax 解码
-        pred_idx = pred[0].argmax(axis=1)  # [seq_len]
-        pred_prob = pred[0].max(axis=1)    # [seq_len]
+    def _ctc_decode(self, pred: np.ndarray) -> Tuple[str, float]:
+        """CTC argmax 解码（batch / single 共用）"""
+        pred_idx = pred.argmax(axis=1)  # [seq_len]
+        pred_prob = pred.max(axis=1)    # [seq_len]
 
         max_idx = len(self._character_map) - 1
 
@@ -448,6 +499,14 @@ class PpOcrOnnxEngine:
         text = "".join(decoded)
         avg_conf = float(np.mean(confs)) if confs else 0.0
         return text, avg_conf
+
+    def _rec_infer_single(self, tensor: np.ndarray) -> Tuple[str, float]:
+        """单个 crop 的识别推理"""
+        input_name = self._rec_session.get_inputs()[0].name
+        output_name = self._rec_session.get_outputs()[0].name
+        pred = self._rec_session.run([output_name], {input_name: tensor})[0]
+        # pred shape: [1, seq_len, num_classes]
+        return self._ctc_decode(pred[0])
 
     # ── 辅助方法 ────────────────────────────
 

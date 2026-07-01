@@ -116,16 +116,19 @@ class Pipeline:
         self._on_status("Running")
 
     def stop(self):
-        """停止流水线"""
+        """停止流水线并清除覆盖层"""
         self._running = False
         if self._thread:
             self._thread.join(timeout=5)
             self._thread = None
+        self._overlay.hide_overlay()
         self._on_status("Stopped")
 
     def toggle_pause(self):
         """切换暂停/继续"""
         self._paused = not self._paused
+        if self._paused:
+            self._overlay.hide_overlay()
         status = "Paused" if self._paused else "Running"
         self._on_status(status)
 
@@ -393,7 +396,6 @@ class Pipeline:
 
         # 原子替换覆盖项 + 显示（线程安全，单次 wx.CallAfter）
         self._overlay.set_items(overlay_items)
-        self._overlay.show_overlay()
         cycle_log.overlay_ms = timer.elapsed_ms()
 
         # ── 6. 日志 ─
@@ -549,7 +551,6 @@ class Pipeline:
             ))
 
         self._overlay.set_items(overlay_items)
-        self._overlay.show_overlay()
         cycle_log.overlay_ms = timer.elapsed_ms()
 
         # ── 4. 日志 ──

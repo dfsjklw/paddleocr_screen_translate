@@ -246,6 +246,8 @@ class MainWindow(wx.Frame):
         on_translation_result: Optional[Callable[[int, list, float], None]] = None,
         on_region_translate: Optional[Callable[[], None]] = None,
         on_clear_overlay: Optional[Callable[[], None]] = None,
+        on_hold_hide_press: Optional[Callable[[], None]] = None,
+        on_hold_hide_release: Optional[Callable[[], None]] = None,
         on_region_start: Optional[Callable[[], None]] = None,
         on_region_done: Optional[Callable[[], None]] = None,
     ):
@@ -262,6 +264,8 @@ class MainWindow(wx.Frame):
         self._on_trans = on_translation_result
         self._on_region = on_region_translate
         self._on_clear = on_clear_overlay
+        self._on_hold_hide_press = on_hold_hide_press
+        self._on_hold_hide_release = on_hold_hide_release
         self._on_region_start = on_region_start
         self._on_region_done = on_region_done
 
@@ -270,6 +274,7 @@ class MainWindow(wx.Frame):
         self._region_in_progress = False
         self._pipeline_running = False
         self._paused = False
+        self._hold_hide_active = False      # 按住隐藏按钮状态
 
         # Dynamic labels registry (for language switching)
         self._dynamic_labels: list[tuple[wx.Control, str, dict]] = []
@@ -316,6 +321,10 @@ class MainWindow(wx.Frame):
         self._btn_region.SetToolTip(tr("tooltip.region"))
         self._btn_clear.SetLabel(tr("btn.clear_overlay"))
         self._btn_clear.SetToolTip(tr("tooltip.clear_overlay"))
+        self._btn_hold_hide.SetLabel(
+            tr("btn.hold_hide_release") if self._hold_hide_active else tr("btn.hold_hide")
+        )
+        self._btn_hold_hide.SetToolTip(tr("tooltip.hold_hide"))
         if self._paused:
             self._btn_pause.SetLabel(tr("btn.resume"))
         else:
@@ -500,7 +509,14 @@ class MainWindow(wx.Frame):
         self._btn_clear = _make_btn(rc_card, tr("btn.clear_overlay"), size=(130, 38))
         self._btn_clear.SetToolTip(tr("tooltip.clear_overlay"))
         self._btn_clear.Bind(wx.EVT_BUTTON, lambda e: self._on_clear() if self._on_clear else None)
-        rc_btn_sz.Add(self._btn_clear, 0)
+        rc_btn_sz.Add(self._btn_clear, 0, wx.RIGHT, 8)
+
+        # Peek 按钮 — 按住隐藏覆盖层
+        self._btn_hold_hide = _make_btn(rc_card, tr("btn.hold_hide"), WARNING_, (130, 38))
+        self._btn_hold_hide.SetToolTip(tr("tooltip.hold_hide"))
+        self._btn_hold_hide.Bind(wx.EVT_LEFT_DOWN, self._on_hold_hide_down)
+        self._btn_hold_hide.Bind(wx.EVT_LEFT_UP, self._on_hold_hide_up)
+        rc_btn_sz.Add(self._btn_hold_hide, 0)
 
         rc_card.SetSizer(wx.BoxSizer(wx.VERTICAL))
         rc_card.GetSizer().Add(rc_btn_sz, 0, wx.ALL, 12)
@@ -775,6 +791,13 @@ class MainWindow(wx.Frame):
         hk_row2.Add(hcs, 0)
         cs.Add(hk_row2, 0, wx.ALL, 10)
 
+        # Row 3: Hold Hide hotkey
+        hk_row3 = wx.BoxSizer(wx.HORIZONTAL)
+        self._hotkey_hold_hide_input, hhs = _make_labeled_input(card, tr("field.hotkey_hold_hide"),
+                                                                  cfg.gui.hotkey_hold_hide, size=(70, -1))
+        hk_row3.Add(hhs, 0)
+        cs.Add(hk_row3, 0, wx.ALL, 10)
+
         btn_row = wx.BoxSizer(wx.HORIZONTAL)
         self._btn_apply_hotkeys = _make_btn(card, tr("btn.apply_hotkeys"), PRIMARY, (130, 32))
         self._btn_apply_hotkeys.Bind(wx.EVT_BUTTON, lambda e: self._apply_hotkeys())
@@ -903,6 +926,7 @@ class MainWindow(wx.Frame):
                   region=cfg.hotkey_region_translate,
                   clear=cfg.hotkey_clear_overlay,
                   pause=cfg.hotkey_pause,
+                  holdhide=cfg.hotkey_hold_hide,
                   quit=cfg.hotkey_quit)
 
     def _refresh_hotkey_label(self):
@@ -930,6 +954,23 @@ class MainWindow(wx.Frame):
             ]:
                 handler = keyboard.add_hotkey(hotkey_str, callback, suppress=True)
                 self._hotkey_handlers.append(handler)
+
+            # 按住隐藏热键 — 按下时隐藏，松开后恢复
+            if self._on_hold_hide_press:
+                handler = keyboard.add_hotkey(
+                    cfg.hotkey_hold_hide,
+                    lambda: wx.CallAfter(self._on_hold_hide_press),
+                    suppress=True,
+                )
+                self._hotkey_handlers.append(handler)
+            if self._on_hold_hide_release:
+                handler = keyboard.add_hotkey(
+                    cfg.hotkey_hold_hide,
+                    lambda: wx.CallAfter(self._on_hold_hide_release),
+                    suppress=True,
+                    trigger_on_release=True,
+                )
+                self._hotkey_handlers.append(handler)
         except Exception as e:
             print(f"[GUI] Hotkey registration failed: {e}")
 
@@ -947,12 +988,13 @@ class MainWindow(wx.Frame):
         new_quit = self._hotkey_quit_input.GetValue().strip()
         new_region = self._hotkey_region_input.GetValue().strip()
         new_clear = self._hotkey_clear_input.GetValue().strip()
+        new_hold_hide = self._hotkey_hold_hide_input.GetValue().strip()
 
-        if not new_single or not new_pause or not new_quit or not new_region or not new_clear:
+        if not all([new_single, new_pause, new_quit, new_region, new_clear, new_hold_hide]):
             wx.MessageBox(tr("dlg.hotkey_empty"), tr("dlg.hotkey_invalid_title"),
                           wx.OK | wx.ICON_WARNING)
             return
-        if len({new_single, new_pause, new_quit, new_region, new_clear}) < 5:
+        if len({new_single, new_pause, new_quit, new_region, new_clear, new_hold_hide}) < 6:
             wx.MessageBox(tr("dlg.hotkey_duplicate"), tr("dlg.hotkey_invalid_title"),
                           wx.OK | wx.ICON_WARNING)
             return
@@ -963,12 +1005,13 @@ class MainWindow(wx.Frame):
         cfg.hotkey_quit = new_quit
         cfg.hotkey_region_translate = new_region
         cfg.hotkey_clear_overlay = new_clear
+        cfg.hotkey_hold_hide = new_hold_hide
 
         self._unbind_hotkeys()
         self._register_hotkeys()
         self._refresh_hotkey_label()
         print(f"[GUI] Hotkeys applied: single={new_single}, pause={new_pause}, "
-              f"quit={new_quit}, region={new_region}, clear={new_clear}")
+              f"quit={new_quit}, region={new_region}, clear={new_clear}, hold_hide={new_hold_hide}")
 
     # ── URL Test ───────────────────────────────────────────────────
 
@@ -1223,6 +1266,7 @@ class MainWindow(wx.Frame):
             cfg.gui.hotkey_quit = self._hotkey_quit_input.GetValue().strip()
             cfg.gui.hotkey_region_translate = self._hotkey_region_input.GetValue().strip()
             cfg.gui.hotkey_clear_overlay = self._hotkey_clear_input.GetValue().strip()
+            cfg.gui.hotkey_hold_hide = self._hotkey_hold_hide_input.GetValue().strip()
 
         cfg.console_logging.enabled = self._tb_console_log.GetValue()
         cfg.gui.ui_language = self._locale.lang
@@ -1246,6 +1290,24 @@ class MainWindow(wx.Frame):
         new_state = not current
         self._config.pipeline.downscale_max_size = 720 if new_state else 0
         self._update_downscale_button_label()
+
+    # ── Hold-Hide 按钮 ─────────────────────────────────────────
+
+    def _on_hold_hide_down(self, event):
+        """Peek 按钮按下 → 隐藏覆盖层"""
+        if self._on_hold_hide_press:
+            self._on_hold_hide_press()
+        self._hold_hide_active = True
+        self._btn_hold_hide.SetLabel(tr("btn.hold_hide_release"))
+        event.Skip()
+
+    def _on_hold_hide_up(self, event):
+        """Peek 按钮松开 → 恢复覆盖层"""
+        if self._on_hold_hide_release:
+            self._on_hold_hide_release()
+        self._hold_hide_active = False
+        self._btn_hold_hide.SetLabel(tr("btn.hold_hide"))
+        event.Skip()
 
     def _on_exclude_cap_toggle(self, event):
         self._config.overlay.exclude_from_capture = self._tb_exclude.GetValue()

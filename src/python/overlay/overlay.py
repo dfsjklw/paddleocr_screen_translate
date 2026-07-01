@@ -138,6 +138,7 @@ class OverlayWindow(wx.Frame):
     def __init__(self, config: OverlayConfig):
         self._config = config
         self._items: list[OverlayItem] = []
+        self._user_hidden = False           # 用户按住隐藏键时跳过显示
         self._font_size = config.font_size
         self._font_family = config.font_family
         self._bg_opacity = int(config.background_opacity * 255)
@@ -213,22 +214,35 @@ class OverlayWindow(wx.Frame):
         """隐藏覆盖层。线程安全。"""
         wx.CallAfter(self._hide_impl)
 
+    def push_to_hide(self):
+        """（用户按住隐藏键时）隐藏窗口但保留内容。线程安全。"""
+        wx.CallAfter(self._push_to_hide_impl)
+
+    def release_show(self):
+        """（用户松开隐藏键时）恢复窗口显示。线程安全。"""
+        wx.CallAfter(self._release_show_impl)
+
     # ── 主线程实现 ──────────────────────────────────────────────────
 
     def _set_items_impl(self, items: list[OverlayItem]):
         """（主线程）原子替换覆盖项并重绘"""
         self._items = items
+        # 用户正在按住隐藏键 → 只存不显示
+        if self._user_hidden:
+            return
         if not self.IsShown():
             if items:
                 self.Show(True)
             else:
                 return  # 窗口未显示且无内容，无需操作
         # 窗口已显示：有内容时绘制，无内容时渲染透明覆盖层
+        self.Raise()
         self._render_to_layered_window()
 
     def _clear_impl(self):
         """（主线程）清除覆盖项 — 渲染透明覆盖层而非隐藏窗口"""
         self._items = []
+        self._user_hidden = False  # 清除时自动解除隐藏状态
         if self.IsShown():
             # 渲染全透明覆盖层，避免隐藏/显示窗口触发 Windows 任务栏逻辑
             self._render_to_layered_window()
@@ -245,6 +259,22 @@ class OverlayWindow(wx.Frame):
         """（主线程）隐藏覆盖层"""
         if self.IsShown():
             self.Show(False)
+
+    def _push_to_hide_impl(self):
+        """（主线程）按住隐藏 — 隐藏窗口但保留内容"""
+        self._user_hidden = True
+        if self.IsShown():
+            self.Show(False)
+
+    def _release_show_impl(self):
+        """（主线程）松开恢复 — 如果之前有内容则重新显示"""
+        if not self._user_hidden:
+            return
+        self._user_hidden = False
+        if self._items:
+            self.Show(True)
+            self.Raise()
+            self._render_to_layered_window()
 
     # ── Per-pixel Alpha 渲染 ───────────────────────────────────────
 
