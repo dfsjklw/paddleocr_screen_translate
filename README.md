@@ -355,11 +355,11 @@ pyinstaller --noconfirm --clean --name ScreenTranslate --noconsole ^
 
 ---
 
-## 开源引用 / Acknowledgements
+## 技术参考与致谢 / Acknowledgements
 
-本项目站在巨人的肩膀上，感谢以下开源项目：
+本项目基于以下开源项目构建，在此致以诚挚感谢。
 
-### 核心依赖
+### 核心技术引用
 
 | 项目 | 用途 | 协议 |
 |------|------|------|
@@ -367,11 +367,6 @@ pyinstaller --noconfirm --clean --name ScreenTranslate --noconsole ^
 | [ggml-org / llama.cpp](https://github.com/ggml-org/llama.cpp) | 本地大模型推理引擎（llama-server） | MIT |
 | [Tencent / HY-MT](https://github.com/Tencent-Hunyuan/HY-MT) | Hunyuan 翻译模型（GGUF 量化版） | Tencent HY Community License |
 | [HoVDuc / ppocrv5-onnx](https://github.com/HoVDuc/ppocrv5-onnx) | ONNX 模型转换参考与启发 | Apache 2.0 |
-
-### 运行时依赖
-
-| 项目 | 用途 | 协议 |
-|------|------|------|
 | [wxPython](https://wxpython.org/) | 跨平台桌面 GUI 框架 | wxWindows Library Licence (LGPL 衍生) |
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime) | ONNX 模型推理引擎 | MIT |
 | [OpenCV](https://opencv.org/) | 图像采集与预处理 | Apache 2.0 |
@@ -382,7 +377,8 @@ pyinstaller --noconfirm --clean --name ScreenTranslate --noconsole ^
 
 ### 特别感谢
 
-- [PaddlePaddle](https://github.com/PaddlePaddle) 团队提供业界领先的 OCR 框架
-- [ggerganov](https://github.com/ggerganov) 及 llama.cpp 社区提供高效本地推理方案
-- 腾讯混元团队提供高质量翻译模型
+- [PaddlePaddle](https://github.com/PaddlePaddle) 团队 — 业界领先的 OCR 框架
+- [ggerganov](https://github.com/ggerganov) 及 llama.cpp 社区 — 高效本地推理方案
+- 腾讯混元团队 ([Tencent-Hunyuan / HY-MT](https://github.com/Tencent-Hunyuan/HY-MT)) — 高质量翻译模型
+- [HoVDuc / ppocrv5-onnx](https://github.com/HoVDuc/ppocrv5-onnx) — 模型转换技术参考
 - 所有为本项目贡献代码、提交 Issue 和建议的开发者
