@@ -68,6 +68,8 @@ class OverlayConfig:
     background_opacity: float = 0.92   # 背景不透明度 (0~1)，越高越能遮盖原文
     text_color: str = "#FFFFFF"
     exclude_from_capture: bool = True
+    min_font_size: int = 8             # 堆叠检测缩小下限
+    stack_shrink: bool = True          # 堆叠检测缩小总开关
 
 
 @dataclass

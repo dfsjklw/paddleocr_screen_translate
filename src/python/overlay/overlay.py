@@ -120,6 +120,7 @@ class OverlayItem:
     h: int
     text: str
     original_text: str = ""
+    font_size: int | None = None  # None = 使用全局配置字号
 
 
 class OverlayWindow(wx.Frame):
@@ -144,9 +145,13 @@ class OverlayWindow(wx.Frame):
         self._bg_opacity = int(config.background_opacity * 255)
         self._text_color = _parse_hex_color(config.text_color)
         self._exclude_capture = config.exclude_from_capture
+        self._min_font_size = getattr(config, 'min_font_size', 8)
+        self._stack_shrink = getattr(config, 'stack_shrink', True)
 
         # 缓存字体对象
         self._cached_font: Optional[wx.Font] = None
+        # 字号→字体映射缓存（用于堆叠缩小）
+        self._font_cache: dict[int, wx.Font] = {}
 
         # 获取工作区尺寸（排除任务栏区域，防止全屏置顶窗口导致任务栏自动隐藏）
         if wx.Display.GetCount() > 0:
@@ -321,11 +326,18 @@ class OverlayWindow(wx.Frame):
         gc.SetPen(wx.Pen(wx.Colour(0, 0, 0, 0)))
         gc.DrawRectangle(0, 0, w, h)
 
+        # 堆叠检测缩小：计算重叠组的缩小字号（结果写入 item.font_size）
+        self._compute_shrink_font_sizes(gc)
+
         # 绘制所有文本项
         font = self._get_font()
         gc.SetFont(font, self._text_color)
         for item in self._items:
             self._draw_item(gc, item)
+
+        # 重置 item.font_size（避免影响下次渲染）
+        for item in self._items:
+            item.font_size = None
 
         del gc
         mdc.SelectObject(wx.NullBitmap)
@@ -357,6 +369,10 @@ class OverlayWindow(wx.Frame):
 
         try:
             src_dc = _gdi32.CreateCompatibleDC(hdc_screen)
+            if not src_dc:
+                print("[Overlay] CreateCompatibleDC failed — GDI resource exhausted")
+                sys.stdout.flush()
+                return
 
             bi = _BITMAPINFOHEADER()
             bi.biSize = ctypes.sizeof(_BITMAPINFOHEADER)
@@ -371,6 +387,17 @@ class OverlayWindow(wx.Frame):
                 src_dc, ctypes.byref(bi), 0,
                 ctypes.byref(ppv_bits), None, 0,
             )
+            if not h_bmp:
+                print("[Overlay] CreateDIBSection failed — GDI resource exhausted")
+                sys.stdout.flush()
+                _gdi32.DeleteDC(src_dc)
+                return
+            if not ppv_bits:
+                print("[Overlay] CreateDIBSection returned null bits")
+                sys.stdout.flush()
+                _gdi32.DeleteObject(h_bmp)
+                _gdi32.DeleteDC(src_dc)
+                return
 
             ctypes.memmove(ppv_bits, bgra, len(bgra))
             old_bmp = _gdi32.SelectObject(src_dc, h_bmp)
@@ -427,10 +454,158 @@ class OverlayWindow(wx.Frame):
             )
         return self._cached_font
 
+    def _get_font_for_size(self, size: int) -> wx.Font:
+        """获取或创建指定字号的字体（缓存复用）
+
+        限制字号最小为 1，防止无效字体导致的 GDI+ 崩溃。
+        """
+        size = max(1, size)
+        if size not in self._font_cache:
+            self._font_cache[size] = wx.Font(
+                size, wx.FONTFAMILY_DEFAULT,
+                wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL,
+                faceName=self._font_family,
+            )
+        return self._font_cache[size]
+
+    @staticmethod
+    def _rects_overlap(
+        r1: tuple[int, int, int, int],
+        r2: tuple[int, int, int, int],
+    ) -> bool:
+        """AABB 矩形相交测试"""
+        x1, y1, w1, h1 = r1
+        x2, y2, w2, h2 = r2
+        return not (x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1)
+
+    def _measure_text_extent(
+        self, gc: wx.GraphicsContext, text: str, font_size: int,
+    ) -> tuple[int, int]:
+        """测量文本在指定字号下的像素宽高，不修改 GC 的永久状态
+
+        返回 (width, height)，即使 GDI+ 调用失败也返回安全默认值。
+        """
+        try:
+            font = self._get_font_for_size(font_size)
+            gc.SetFont(font, self._text_color)
+            tw, th, _, _ = gc.GetFullTextExtent(text)
+            return tw, th
+        except Exception as e:
+            print(f"[Overlay] _measure_text_extent error: {e}")
+            sys.stdout.flush()
+            # 返回基于字号的安全默认值
+            return font_size * len(text), font_size + 4
+
+    def _compute_item_rect(
+        self, gc: wx.GraphicsContext, item: OverlayItem, font_size: int,
+    ) -> tuple[int, int, int, int]:
+        """计算 item 在给定字号下的背景矩形坐标 (x, y, w, h)
+
+        逻辑与 _draw_item 完全一致，用于堆叠检测中的尺寸测量。
+        """
+        padding = 4
+        margin = 2
+        x = item.x - margin
+        y = item.y - margin
+        if item.text:
+            tw, th = self._measure_text_extent(gc, item.text, font_size)
+            rect_w = tw + padding * 2
+            rect_h = th + padding * 2
+        else:
+            rect_w = item.w + margin * 2
+            rect_h = item.h + margin * 2
+        return (x, y, rect_w, rect_h)
+
+    def _compute_shrink_font_sizes(self, gc: wx.GraphicsContext):
+        """检测堆叠重叠并计算每个 item 的缩小字号
+
+        流程：
+        1. 计算所有 item 在配置字号下的背景矩形
+        2. 两两检测相交 → 构建无向图（邻接表）
+        3. BFS 查找连通分量（重叠组）
+        4. 对每组从配置字号向下迭代，直到组内无重叠或达到最小字号
+        5. 将结果字号写入 item.font_size
+
+        整段包裹 try-except 防止 GDI+ 原生崩溃导致进程退出。
+        """
+        if not self._stack_shrink:
+            return
+        n = len(self._items)
+        if n <= 1:
+            return
+
+        try:
+            # Step 1: 计算初始矩形
+            rects = [self._compute_item_rect(gc, item, self._font_size) for item in self._items]
+
+            # Step 2: 构建重叠邻接表（仅含文本的 item 参与重叠检测）
+            adj = [set() for _ in range(n)]
+            for i in range(n):
+                if not self._items[i].text:
+                    continue
+                for j in range(i + 1, n):
+                    if not self._items[j].text:
+                        continue
+                    if self._rects_overlap(rects[i], rects[j]):
+                        adj[i].add(j)
+                        adj[j].add(i)
+
+            # Step 3: BFS 找连通分量
+            visited = [False] * n
+            groups: list[list[int]] = []
+            for i in range(n):
+                if not visited[i] and self._items[i].text and adj[i]:
+                    group = []
+                    stack = [i]
+                    visited[i] = True
+                    while stack:
+                        v = stack.pop()
+                        group.append(v)
+                        for u in adj[v]:
+                            if not visited[u]:
+                                visited[u] = True
+                                stack.append(u)
+                    groups.append(group)
+
+            # Step 4: 对每个重叠组迭代缩小字号
+            for group in groups:
+                current = self._font_size
+                while current > self._min_font_size:
+                    group_rects = {}
+                    for idx in group:
+                        group_rects[idx] = self._compute_item_rect(
+                            gc, self._items[idx], current,
+                        )
+                    # 检查组内是否有重叠
+                    has_overlap = False
+                    for a in range(len(group)):
+                        for b in range(a + 1, len(group)):
+                            if self._rects_overlap(
+                                group_rects[group[a]], group_rects[group[b]],
+                            ):
+                                has_overlap = True
+                                break
+                        if has_overlap:
+                            break
+                    if not has_overlap:
+                        break
+                    current -= 1
+
+                # 将最终字号赋给组内所有 item
+                for idx in group:
+                    self._items[idx].font_size = current
+        except Exception as e:
+            print(f"[Overlay] _compute_shrink_font_sizes error: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.stdout.flush()
+            # 出错时不做任何缩小，保持原样
+
     def _draw_item(self, gc: wx.GraphicsContext, item: OverlayItem):
         """绘制单个文本项：先填充不透明背景遮盖原文，再绘制译文
 
         即使译文为空，也绘制背景矩形以遮盖原文区域。
+        支持 item 级别的字号覆盖（堆叠检测缩小用）。
         """
         padding = 4
         margin = 2
@@ -438,7 +613,14 @@ class OverlayWindow(wx.Frame):
 
         # 计算背景矩形尺寸：有文本时匹配文本大小，无文本时覆盖原始文本框
         if item.text:
-            tw, th, _, _ = gc.GetFullTextExtent(item.text)
+            font_size = item.font_size if item.font_size is not None else self._font_size
+            font = self._get_font_for_size(font_size)
+            gc.SetFont(font, self._text_color)
+            try:
+                tw, th, _, _ = gc.GetFullTextExtent(item.text)
+            except Exception:
+                # GetFullTextExtent 失败时使用保守估计
+                tw, th = font_size * len(item.text), font_size + 4
             rect_w = tw + padding * 2
             rect_h = th + padding * 2
         else:

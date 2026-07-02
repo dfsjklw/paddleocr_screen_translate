@@ -272,6 +272,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Font size:",
         "zh": "字体大小:",
     },
+    "field.min_font_size": {
+        "en": "Min font size:",
+        "zh": "最小字体:",
+    },
+    "field.stack_shrink": {
+        "en": "Auto-shrink overlap:",
+        "zh": "自动缩小重叠:",
+    },
     "field.bg_opacity": {
         "en": "BG opacity:",
         "zh": "背景透明度:",

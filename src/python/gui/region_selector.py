@@ -283,6 +283,7 @@ class RegionSelector(wx.Frame):
                 size_text = tr("region.dimensions", w=rw, h=rh)
                 font = wx.Font(11, wx.FONTFAMILY_DEFAULT,
                               wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+                gc.SetFont(font, wx.Colour(255, 255, 255))
                 tw, th, _, _ = gc.GetFullTextExtent(size_text)
                 label_x = rx + max(0, (rw - tw) // 2)
                 label_y = ry + rh + 4 if ry + rh + th + 8 < h else ry - th - 4

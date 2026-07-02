@@ -72,6 +72,10 @@ overlay:
   text_color: "#FFFFFF"
   # 是否启用 WDA_EXCLUDEFROMCAPTURE 防污染
   exclude_from_capture: false
+  # 堆叠检测缩小：多个覆盖层互相遮盖时自动缩小字号，最小字号下限
+  min_font_size: 8
+  # 堆叠检测缩小总开关
+  stack_shrink: true
 
 pipeline:
   # 目标周期 (秒)

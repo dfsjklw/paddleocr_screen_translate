@@ -706,6 +706,8 @@ class MainWindow(wx.Frame):
         row1 = wx.BoxSizer(wx.HORIZONTAL)
         self._font_size_input, fss = _make_int_input(card, tr("field.font_size"), cfg.overlay.font_size)
         row1.Add(fss, 0, wx.RIGHT, 16)
+        self._min_font_size_input, mfs = _make_int_input(card, tr("field.min_font_size"), cfg.overlay.min_font_size)
+        row1.Add(mfs, 0, wx.RIGHT, 16)
         self._bg_opacity_input, bos = _make_float_input(card, tr("field.bg_opacity"), cfg.overlay.background_opacity)
         row1.Add(bos, 0)
         cs.Add(row1, 0, wx.ALL, 10)
@@ -722,6 +724,11 @@ class MainWindow(wx.Frame):
         self._tb_exclude.Bind(wx.EVT_CHECKBOX, self._on_exclude_cap_toggle)
         self._toggles.append(self._tb_exclude)
         cs.Add(self._tb_exclude, 0, wx.ALL, 10)
+
+        self._tb_stack_shrink = ToggleSwitch(card, label=tr("field.stack_shrink"))
+        self._tb_stack_shrink.SetValue(cfg.overlay.stack_shrink)
+        self._toggles.append(self._tb_stack_shrink)
+        cs.Add(self._tb_stack_shrink, 0, wx.ALL, 10)
 
         card.SetSizer(cs)
         sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
@@ -1248,11 +1255,14 @@ class MainWindow(wx.Frame):
 
         try: cfg.overlay.font_size = int(self._font_size_input.GetValue())
         except ValueError: pass
+        try: cfg.overlay.min_font_size = int(self._min_font_size_input.GetValue())
+        except ValueError: pass
         cfg.overlay.font_family = self._font_family_input.GetValue().strip()
         cfg.overlay.text_color = self._text_color_input.GetValue().strip()
         try: cfg.overlay.background_opacity = float(self._bg_opacity_input.GetValue())
         except ValueError: pass
         cfg.overlay.exclude_from_capture = self._tb_exclude.GetValue()
+        cfg.overlay.stack_shrink = self._tb_stack_shrink.GetValue()
 
         cfg.capture.backend = self._backend_input.GetValue().strip()
         try: cfg.capture.camera_index = int(self._cam_index_input.GetValue())
