@@ -6,143 +6,12 @@ Uses pure Win32 GDI API (BitBlt) for screen capture — no PIL dependency.
 Returns the selected region coordinates + BGR frame for OCR + translation.
 """
 import sys
-import ctypes
-import ctypes.wintypes
 import numpy as np
 import wx
 from typing import Optional, Callable
 
+from ..capture.screenshot import capture_screen_region, get_screen_size
 from ..i18n import tr
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Win32 GDI constants & type definitions
-# ═══════════════════════════════════════════════════════════════════
-
-SRCCOPY = 0x00CC0020
-DIB_RGB_COLORS = 0
-BI_RGB = 0
-
-# GDI function prototypes — matching overlay.py style
-_user32 = ctypes.windll.user32
-_gdi32 = ctypes.windll.gdi32
-
-_gdi32.CreateCompatibleDC.argtypes = [ctypes.wintypes.HDC]
-_gdi32.CreateCompatibleDC.restype = ctypes.wintypes.HDC
-_gdi32.CreateCompatibleBitmap.argtypes = [ctypes.wintypes.HDC, ctypes.c_int, ctypes.c_int]
-_gdi32.CreateCompatibleBitmap.restype = ctypes.wintypes.HBITMAP
-_gdi32.SelectObject.argtypes = [ctypes.wintypes.HDC, ctypes.wintypes.HGDIOBJ]
-_gdi32.SelectObject.restype = ctypes.wintypes.HGDIOBJ
-_gdi32.DeleteObject.argtypes = [ctypes.wintypes.HGDIOBJ]
-_gdi32.DeleteObject.restype = ctypes.wintypes.BOOL
-_gdi32.DeleteDC.argtypes = [ctypes.wintypes.HDC]
-_gdi32.DeleteDC.restype = ctypes.wintypes.BOOL
-_gdi32.BitBlt.argtypes = [
-    ctypes.wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-    ctypes.wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.wintypes.DWORD,
-]
-_gdi32.BitBlt.restype = ctypes.wintypes.BOOL
-_gdi32.GetDIBits.argtypes = [
-    ctypes.wintypes.HDC, ctypes.wintypes.HBITMAP, ctypes.wintypes.UINT,
-    ctypes.wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, ctypes.wintypes.UINT,
-]
-_gdi32.GetDIBits.restype = ctypes.c_int
-_gdi32.CreateDCW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_void_p]
-_gdi32.CreateDCW.restype = ctypes.wintypes.HDC
-
-_user32.ReleaseDC.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.HDC]
-_user32.ReleaseDC.restype = ctypes.c_int
-_user32.GetDC.argtypes = [ctypes.wintypes.HWND]
-_user32.GetDC.restype = ctypes.wintypes.HDC
-_user32.GetSystemMetrics.argtypes = [ctypes.c_int]
-_user32.GetSystemMetrics.restype = ctypes.c_int
-
-
-class _BITMAPINFOHEADER(ctypes.Structure):
-    _fields_ = [
-        ("biSize", ctypes.wintypes.DWORD),
-        ("biWidth", ctypes.wintypes.LONG),
-        ("biHeight", ctypes.wintypes.LONG),
-        ("biPlanes", ctypes.wintypes.WORD),
-        ("biBitCount", ctypes.wintypes.WORD),
-        ("biCompression", ctypes.wintypes.DWORD),
-        ("biSizeImage", ctypes.wintypes.DWORD),
-        ("biXPelsPerMeter", ctypes.wintypes.LONG),
-        ("biYPelsPerMeter", ctypes.wintypes.LONG),
-        ("biClrUsed", ctypes.wintypes.DWORD),
-        ("biClrImportant", ctypes.wintypes.DWORD),
-    ]
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Win32 GDI Screen Capture Utilities
-# ═══════════════════════════════════════════════════════════════════
-
-def _win32_capture_screen(x: int, y: int, w: int, h: int) -> np.ndarray:
-    """
-    Capture a screen region using Win32 GDI (BitBlt + GetDIBits).
-
-    Returns a BGR numpy array (matching OpenCV / pipeline format).
-    Uses CreateDCW("DISPLAY") + BitBlt — no PIL dependency.
-    """
-    # Get screen device context
-    hdc_screen = _gdi32.CreateDCW("DISPLAY", None, None, None)
-    if not hdc_screen:
-        raise OSError("CreateDCW('DISPLAY') failed")
-
-    try:
-        # Create a memory DC compatible with screen
-        hdc_mem = _gdi32.CreateCompatibleDC(hdc_screen)
-        if not hdc_mem:
-            raise OSError("CreateCompatibleDC failed")
-
-        try:
-            # Create a 32-bit bitmap
-            hbmp = _gdi32.CreateCompatibleBitmap(hdc_screen, w, h)
-            if not hbmp:
-                raise OSError("CreateCompatibleBitmap failed")
-
-            try:
-                old_bmp = _gdi32.SelectObject(hdc_mem, hbmp)
-
-                # BitBlt from screen to memory DC
-                ok = _gdi32.BitBlt(hdc_mem, 0, 0, w, h,
-                                   hdc_screen, x, y, SRCCOPY)
-                if not ok:
-                    raise OSError(f"BitBlt failed (err={ctypes.get_last_error()})")
-
-                # Build BITMAPINFO for GetDIBits (32-bit BGRA, top-down)
-                bi = _BITMAPINFOHEADER()
-                bi.biSize = ctypes.sizeof(_BITMAPINFOHEADER)
-                bi.biWidth = w
-                bi.biHeight = -h  # negative = top-down DIB
-                bi.biPlanes = 1
-                bi.biBitCount = 32
-                bi.biCompression = BI_RGB
-
-                buf_size = w * h * 4
-                buf = (ctypes.c_ubyte * buf_size)()
-
-                lines = _gdi32.GetDIBits(
-                    hdc_mem, hbmp, 0, h,
-                    ctypes.byref(buf), ctypes.byref(bi), DIB_RGB_COLORS,
-                )
-                if lines == 0:
-                    raise OSError(f"GetDIBits failed (err={ctypes.get_last_error()})")
-
-                # Convert BGRA byte buffer → numpy array → BGR (drop alpha)
-                bgra = np.frombuffer(buf, dtype=np.uint8).reshape(h, w, 4)
-                bgr = bgra[:, :, :3][:, :, ::-1].copy()  # BGRA → BGR
-
-                return bgr
-
-            finally:
-                _gdi32.SelectObject(hdc_mem, old_bmp)
-                _gdi32.DeleteObject(hbmp)
-        finally:
-            _gdi32.DeleteDC(hdc_mem)
-    finally:
-        _gdi32.DeleteDC(hdc_screen)
 
 
 def _win32_capture_full_screen_to_bitmap() -> wx.Bitmap:
@@ -151,11 +20,10 @@ def _win32_capture_full_screen_to_bitmap() -> wx.Bitmap:
 
     Returns a 32-bit RGB wx.Bitmap suitable for GDI+ rendering.
     """
-    w = _user32.GetSystemMetrics(0)  # SM_CXSCREEN
-    h = _user32.GetSystemMetrics(1)  # SM_CYSCREEN
+    w, h = get_screen_size()
 
-    # Capture using Win32 GDI as BGRA buffer
-    bgr = _win32_capture_screen(0, 0, w, h)
+    # Capture using Win32 GDI via screenshot module
+    bgr = capture_screen_region(0, 0, w, h)
 
     # BGR → RGB for wx.Bitmap
     rgb = bgr[:, :, ::-1].copy()
@@ -202,8 +70,7 @@ class RegionSelector(wx.Frame):
             print(f"[RegionSelector] Win32 full-screen capture failed: {e}")
 
         # Screen dimensions
-        self._screen_w = _user32.GetSystemMetrics(0)
-        self._screen_h = _user32.GetSystemMetrics(1)
+        self._screen_w, self._screen_h = get_screen_size()
 
         # Selection state
         self._start_x: int = -1
@@ -357,7 +224,7 @@ class RegionSelector(wx.Frame):
 
         # Capture the selected region using Win32 GDI (BitBlt)
         try:
-            frame = _win32_capture_screen(rx, ry, rw, rh)
+            frame = capture_screen_region(rx, ry, rw, rh)
         except Exception as e:
             print(f"[RegionSelector] Win32 region capture failed: {e}")
             self._do_cancel()

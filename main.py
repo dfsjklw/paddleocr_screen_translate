@@ -19,6 +19,7 @@ import wx
 from src.python.config.settings import load_config, AppConfig
 from src.python.gui.main_window import MainWindow, TrayIcon
 from src.python.gui.region_selector import RegionSelector
+from src.python.capture.screenshot import capture_fullscreen
 from src.python.overlay.overlay import OverlayWindow
 from src.python.pipeline.pipeline import Pipeline
 from src.python.i18n import init_locale
@@ -104,10 +105,46 @@ class App(wx.App):
             self._pipeline.start()
 
     def _single_translate(self):
-        """执行单次翻译"""
+        """执行单次翻译 — 使用全屏截图（Win32 GDI BitBlt）替代 OBS 虚拟摄像头"""
+        if getattr(self, '_single_capture_in_progress', False):
+            return
+        self._single_capture_in_progress = True
+
         if self._window:
             self._window.sync_config_from_gui()
-        self._pipeline.run_once(
+
+        # 清除覆盖层，防止截图包含已翻译的文本
+        self._overlay.clear()
+        self._on_status("Overlay cleared")
+
+        # 隐藏主窗口，避免截图包含 GUI 自身
+        if self._window and self._window.IsShown():
+            self._window.Hide()
+
+        # 延迟 200ms 让窗口隐藏生效，然后截取全屏
+        wx.CallLater(200, self._do_single_capture)
+
+    def _do_single_capture(self):
+        """截取全屏并启动翻译流水线"""
+        try:
+            frame = capture_fullscreen()
+        except Exception as e:
+            print(f"[Main] Fullscreen screenshot failed: {e}")
+            self._on_status(f"Single: screenshot failed: {e}")
+            if self._window:
+                self._window.Show()
+                self._window.Raise()
+            self._single_capture_in_progress = False
+            return
+
+        # 恢复主窗口
+        if self._window:
+            self._window.Show()
+            self._window.Raise()
+
+        # 在后台线程中运行 OCR + 翻译 + 覆盖
+        self._pipeline.run_fullscreen_translate(
+            frame=frame,
             on_start=self._on_single_start,
             on_done=self._on_single_done,
         )
@@ -192,6 +229,7 @@ class App(wx.App):
 
     def _on_single_done(self):
         """单次翻译完成"""
+        self._single_capture_in_progress = False
         if self._window:
             self._window._single_in_progress = False
             wx.CallAfter(lambda: self._window._btn_single.Enable(True))

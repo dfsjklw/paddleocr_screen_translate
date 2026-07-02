@@ -341,6 +341,9 @@ class MainWindow(wx.Frame):
         # Downscale button
         self._update_downscale_button_label()
 
+        # Upscale button
+        self._update_upscale_button_label()
+
         # Dynamic labels
         for ctrl, key, kwargs in self._dynamic_labels:
             if isinstance(ctrl, wx.StaticText):
@@ -375,6 +378,12 @@ class MainWindow(wx.Frame):
             self._btn_downscale.SetLabel(tr("downscale.on"))
         else:
             self._btn_downscale.SetLabel(tr("downscale.off"))
+
+    def _update_upscale_button_label(self):
+        if self._config.pipeline.upscale_small_image:
+            self._btn_upscale.SetLabel(tr("upscale.on"))
+        else:
+            self._btn_upscale.SetLabel(tr("upscale.off"))
 
     # ── UI Construction ────────────────────────────────────────────
 
@@ -537,6 +546,17 @@ class MainWindow(wx.Frame):
         self._btn_downscale.SetWindowStyleFlag(wx.BORDER_NONE)
         self._btn_downscale.Bind(wx.EVT_BUTTON, lambda e: self._on_downscale_button())
         tc_sz.Add(self._btn_downscale, 0, wx.EXPAND | wx.ALL, 6)
+
+        # 小图放大按钮
+        upscale_on = cfg.pipeline.upscale_small_image
+        self._btn_upscale = wx.Button(toggle_card,
+                                       label=tr("upscale.on") if upscale_on else tr("upscale.off"),
+                                       size=(-1, 34))
+        self._btn_upscale.SetBackgroundColour(BTN_DEFAULT)
+        self._btn_upscale.SetForegroundColour(TEXT_MAIN)
+        self._btn_upscale.SetWindowStyleFlag(wx.BORDER_NONE)
+        self._btn_upscale.Bind(wx.EVT_BUTTON, lambda e: self._on_upscale_button())
+        tc_sz.Add(self._btn_upscale, 0, wx.EXPAND | wx.ALL, 6)
 
         toggle_card.SetSizer(tc_sz)
         sz.Add(toggle_card, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, outer_pad)
@@ -1300,6 +1320,11 @@ class MainWindow(wx.Frame):
         new_state = not current
         self._config.pipeline.downscale_max_size = 720 if new_state else 0
         self._update_downscale_button_label()
+
+    def _on_upscale_button(self):
+        current = self._config.pipeline.upscale_small_image
+        self._config.pipeline.upscale_small_image = not current
+        self._update_upscale_button_label()
 
     # ── Hold-Hide 按钮 ─────────────────────────────────────────
 

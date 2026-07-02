@@ -76,6 +76,7 @@ class OverlayConfig:
 class PipelineConfig:
     cycle_interval: float = 5.0
     downscale_max_size: int = 0     # OCR前将长边>此值的图像等比缩至此值; 0=不缩放（默认关闭）
+    upscale_small_image: bool = True  # 小图预处理: <300px时放大3x; 默认开启
 
 
 @dataclass

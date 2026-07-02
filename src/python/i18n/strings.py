@@ -71,6 +71,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "zh": "720p 缩放: 关",
     },
 
+    # ── 小图放大按钮 ──
+    "upscale.on": {
+        "en": "Upscale Small Image: ON",
+        "zh": "小图放大: 开",
+    },
+    "upscale.off": {
+        "en": "Upscale Small Image: OFF",
+        "zh": "小图放大: 关",
+    },
+
     # ── 状态 ──
     "status.ready": {
         "en": "Ready",

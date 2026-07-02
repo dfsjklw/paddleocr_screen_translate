@@ -55,12 +55,12 @@ def test_region_capture():
     print("Test 1: Region Screen Capture (Win32 GDI)")
     print("=" * 60)
 
-    from src.python.gui.region_selector import _win32_capture_screen
+    from src.python.capture.screenshot import capture_screen_region
 
     try:
         # Capture a small region of the screen (top-left 100x100)
-        frame_bgr = _win32_capture_screen(0, 0, 100, 100)
-        assert frame_bgr is not None, "_win32_capture_screen returned None"
+        frame_bgr = capture_screen_region(0, 0, 100, 100)
+        assert frame_bgr is not None, "capture_screen_region returned None"
         assert frame_bgr.shape == (100, 100, 3), \
             f"Expected (100,100,3), got {frame_bgr.shape}"
         assert frame_bgr.dtype == np.uint8, \
@@ -279,9 +279,9 @@ def test_region_selector_module():
     print("=" * 60)
 
     try:
+        from src.python.capture.screenshot import capture_screen_region
         from src.python.gui.region_selector import (
-            RegionSelector, _win32_capture_screen,
-            _win32_capture_full_screen_to_bitmap,
+            RegionSelector, _win32_capture_full_screen_to_bitmap,
         )
 
         # Check RegionSelector has the expected interface
@@ -289,8 +289,8 @@ def test_region_selector_module():
             "RegionSelector missing _get_selection_rect"
 
         # Verify Win32 GDI capture functions exist and are callable
-        assert callable(_win32_capture_screen), \
-            "_win32_capture_screen is not callable"
+        assert callable(capture_screen_region), \
+            "capture_screen_region is not callable"
         assert callable(_win32_capture_full_screen_to_bitmap), \
             "_win32_capture_full_screen_to_bitmap is not callable"
 

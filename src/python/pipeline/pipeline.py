@@ -57,19 +57,26 @@ class Pipeline:
         # 翻译结果缓存 (原文 → 译文)
         self._translation_cache: dict[str, str] = {}
 
-    def init(self) -> bool:
-        """初始化所有子模块"""
+    def init(self, skip_capture: bool = False) -> bool:
+        """初始化所有子模块
+
+        Args:
+            skip_capture: 若为 True，跳过摄像头初始化（用于截屏式单次翻译/区域翻译）
+        """
         self._on_status("Initializing...")
 
-        # 捕获
-        try:
-            self._capture = create_capture(self._config.capture)
-            if not self._capture.open():
-                self._on_status("Error: Camera open failed")
+        # 捕获 — 可选（单次/区域翻译使用传入截图帧时跳过）
+        if not skip_capture:
+            try:
+                self._capture = create_capture(self._config.capture)
+                if not self._capture.open():
+                    self._on_status("Error: Camera open failed")
+                    return False
+            except Exception as e:
+                self._on_status(f"Error: {e}")
                 return False
-        except Exception as e:
-            self._on_status(f"Error: {e}")
-            return False
+        else:
+            self._capture = None
 
         # 先关闭旧的 OCR 引擎（如果有），再创建新的
         if self._ocr is not None:
@@ -210,6 +217,52 @@ class Pipeline:
 
         threading.Thread(target=_region_shot, daemon=True).start()
 
+    def run_fullscreen_translate(
+        self, frame: np.ndarray,
+        on_start=None, on_done=None,
+    ):
+        """执行单次全屏翻译（使用预截取的全屏截图帧）
+
+        复用 region 翻译的 OCR → 翻译 → 覆盖路径，
+        区域偏移为 (0, 0)，即使用全屏绝对坐标。
+        初始化流水线时跳过摄像头采集。
+
+        Args:
+            frame: BGR numpy array — 全屏截图
+            on_start: 开始回调（在后台线程中调用）
+            on_done: 完成回调（在后台线程中调用）
+        """
+        if not hasattr(self, '_single_shot_running'):
+            self._single_shot_running = False
+
+        if self._single_shot_running:
+            return  # 单次翻译已在执行中
+
+        def _fullscreen_shot():
+            self._single_shot_running = True
+            if on_start:
+                on_start()
+            try:
+                self._on_status("Single: initializing...")
+                if not self.init(skip_capture=True):
+                    self._on_status("Single: init failed")
+                    return
+                self._on_status("Single: capturing...")
+                # _execute_region_cycle 内部加锁，region 偏移为 (0,0)
+                # 即 OCR 返回的坐标直接作为全屏绝对坐标
+                self._execute_region_cycle(frame, 0, 0)
+                self._on_status("Single: done")
+            except Exception as e:
+                self._on_status(f"Single: error: {e}")
+                import traceback
+                traceback.print_exc()
+            finally:
+                self._single_shot_running = False
+                if on_done:
+                    on_done()
+
+        threading.Thread(target=_fullscreen_shot, daemon=True).start()
+
     @property
     def is_paused(self) -> bool:
         return self._paused
@@ -272,6 +325,10 @@ class Pipeline:
         timer.start()
         # 记录原始尺寸（用于后续坐标恢复）
         orig_h, orig_w = frame.shape[:2]
+
+        # 小图放大预处理（如果宽或高 < 300px，等比例放大 3x）
+        frame = self._maybe_upscale(frame)
+
         scale_factor = 1.0
         max_size = self._config.pipeline.downscale_max_size
         if max_size > 0 and max(orig_w, orig_h) > max_size:
@@ -433,6 +490,10 @@ class Pipeline:
         # ── 1. OCR ──
         timer.start()
         orig_h, orig_w = frame.shape[:2]
+
+        # 小图放大预处理（如果宽或高 < 300px，等比例放大 3x）
+        frame = self._maybe_upscale(frame)
+
         scale_factor = 1.0
         max_size = self._config.pipeline.downscale_max_size
         if max_size > 0 and max(orig_w, orig_h) > max_size:
@@ -599,6 +660,33 @@ class Pipeline:
                     continue
         
         return meaningful_boxes
+
+    def _maybe_upscale(self, frame: np.ndarray) -> np.ndarray:
+        """
+        小图放大预处理。
+
+        如果 upscale_small_image 开启且图像的宽或高小于 300 像素，
+        则将其等比例放大 3 倍，以提高 OCR 识别小尺寸文本的成功率。
+
+        Args:
+            frame: BGR 输入图像 (numpy array)
+
+        Returns:
+            放大后的图像，或未修改的原图
+        """
+        if not self._config.pipeline.upscale_small_image:
+            return frame
+
+        h, w = frame.shape[:2]
+        if w >= 300 and h >= 300:
+            return frame
+
+        scale = 3.0
+        new_w = int(round(w * scale))
+        new_h = int(round(h * scale))
+        upscaled = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+        print(f"[Pipeline] Upscaled small image {w}x{h} → {new_w}x{new_h}")
+        return upscaled
 
     def _merge_adjacent_boxes(self, boxes: list[TextBox]) -> list[TextBox]:
         """
