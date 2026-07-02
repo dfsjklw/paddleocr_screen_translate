@@ -75,7 +75,7 @@ overlay:
   # 堆叠检测缩小：多个覆盖层互相遮盖时自动缩小字号，最小字号下限
   min_font_size: 8
   # 堆叠检测缩小总开关
-  stack_shrink: true
+  stack_shrink: false
 
 pipeline:
   # 目标周期 (秒)
