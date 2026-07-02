@@ -83,7 +83,8 @@ class LlamaCppTranslator(TranslatorBackend):
         prompt = self._build_prompt(text, target_lang)
         payload = {
             "messages": [
-                {"role": "system", "content": "You are a professional translator. Output only the translation."},
+                {"role": "system", "content": ""},
+                #{"role": "system", "content": "You are a professional translator. Output only the translation."},
                 {"role": "user", "content": prompt},
             ],
             "temperature": self._params.get("temperature", 0.7),
