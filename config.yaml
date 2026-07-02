@@ -27,7 +27,7 @@ ocr:
   # 启用前请确保已安装: pip install onnxruntime-directml
   use_directml: true
   # 识别 batch 大小: 0 = 全部打包为一次推理（最快）, 1 = 逐张推理（原行为）, N = 每 N 个一组
-  rec_batch_size: 0
+  rec_batch_size: 4
   # ── 通用参数 ──
   # Python 侧二次过滤最小置信度 (低于此值的结果丢弃)
   min_confidence: 0.5
