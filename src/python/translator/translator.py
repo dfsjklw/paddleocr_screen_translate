@@ -15,7 +15,7 @@ from ..config.settings import TranslatorConfig, AppConfig
 
 # llama.cpp /v1/chat/completions 的请求格式
 #_TRANSLATE_PROMPT_ZH = "将以下文本翻译为中文，注意只需要输出翻译后的结果，不要额外解释：{text}"
-_TRANSLATE_PROMPT_ZH = "将英语翻译成中文：{text}"
+_TRANSLATE_PROMPT_ZH = "将以下英语翻译成中文,非英语部分原文输出：\n{text}"
 #_TRANSLATE_PROMPT_XX = "Translate the following text into {target}. Output ONLY the translation, nothing else:\n\n{text}"
 _TRANSLATE_PROMPT_XX = "{text}"
 
