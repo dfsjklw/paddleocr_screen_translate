@@ -520,4 +520,54 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "{w} x {h}",
         "zh": "{w} x {h}",
     },
+
+    # ── OCR 引擎信息 ──
+    "engine.info": {
+        "en": "PP-OCRv6 ONNX Runtime",
+        "zh": "PP-OCRv6 ONNX Runtime",
+    },
+    "engine.model_hint": {
+        "en": "{det} / {rec} — ONNX inference",
+        "zh": "{det} / {rec} — ONNX 推理引擎",
+    },
+
+    # ── 结果区域 ──
+    "result.trimmed": {
+        "en": "... (older results trimmed) ...",
+        "zh": "…（已截断早期结果）…",
+    },
+
+    # ── 状态栏周期信息 ──
+    "cycle.info": {
+        "en": "Cycle #{id}: {count} boxes, Total: {total}ms | Cap: {cap}ms | OCR: {ocr}ms | Trans: {trans}ms",
+        "zh": "周期 #{id}: {count} 个文本框, 总计: {total}ms | 采集: {cap}ms | OCR: {ocr}ms | 翻译: {trans}ms",
+    },
+    "cycle.skipped": {
+        "en": "Cycle #{id}: SKIPPED ({reason})",
+        "zh": "周期 #{id}: 已跳过 ({reason})",
+    },
+
+    # ── 区域选择器 ──
+    "region_selector.title": {
+        "en": "Region Selector",
+        "zh": "区域选择器",
+    },
+
+    # ── 托盘图标提示 ──
+    "tray.tooltip": {
+        "en": "Screen Translate",
+        "zh": "屏幕翻译",
+    },
+
+    # ── 语言切换按钮提示 ──
+    "btn.lang_toggle_tooltip": {
+        "en": "Switch UI language / 切换界面语言",
+        "zh": "Switch UI language / 切换界面语言",
+    },
+
+    # ── 测试连接中提示 ──
+    "test.connecting": {
+        "en": "...",
+        "zh": "…",
+    },
 }

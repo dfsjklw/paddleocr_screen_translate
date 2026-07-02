@@ -181,24 +181,24 @@ def _make_btn(parent, label: str, color=None, size=(-1, 36), bold=False) -> wx.B
 # ═══════════════════════════════════════════════════════════════════
 
 def _make_labeled_input(parent, label: str, value: str, size=(80, -1),
-                        cb=None) -> tuple[wx.TextCtrl, wx.BoxSizer]:
-    """Create Label | TextCtrl horizontal row."""
+                        cb=None) -> tuple[wx.TextCtrl, wx.StaticText, wx.BoxSizer]:
+    """Create Label | TextCtrl horizontal row. Returns (ctrl, label_widget, sizer)."""
     sz = wx.BoxSizer(wx.HORIZONTAL)
     lbl = wx.StaticText(parent, label=label)
     lbl.SetForegroundColour(TEXT_MAIN)
     sz.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL)
     ctrl = wx.TextCtrl(parent, value=value, size=size)
     sz.Add(ctrl, 0, wx.LEFT, 5)
-    return ctrl, sz
+    return ctrl, lbl, sz
 
 
 def _make_float_input(parent, label: str, value: float, size=(65, -1),
-                      cb=None) -> tuple[wx.TextCtrl, wx.BoxSizer]:
+                      cb=None) -> tuple[wx.TextCtrl, wx.StaticText, wx.BoxSizer]:
     return _make_labeled_input(parent, label, f"{value:.4g}", size, cb)
 
 
 def _make_int_input(parent, label: str, value: int, size=(65, -1),
-                    cb=None) -> tuple[wx.TextCtrl, wx.BoxSizer]:
+                    cb=None) -> tuple[wx.TextCtrl, wx.StaticText, wx.BoxSizer]:
     return _make_labeled_input(parent, label, str(value), size, cb)
 
 
@@ -305,6 +305,7 @@ class MainWindow(wx.Frame):
         """Refresh all UI texts after language change."""
         self.SetTitle(tr("app.title"))
         self._btn_lang.SetLabel(tr("btn.lang_toggle"))
+        self._btn_lang.SetToolTip(tr("btn.lang_toggle_tooltip"))
 
         # Tab labels
         for i, key in enumerate(["tab.control", "tab.ocr", "tab.translator",
@@ -337,6 +338,7 @@ class MainWindow(wx.Frame):
         self._tb_exclude.SetLabel(tr("cb.exclude_capture"))
         self._tb_log.SetLabel(tr("cb.logging"))
         self._tb_console_log.SetLabel(tr("cb.console_logging"))
+        self._tb_stack_shrink.SetLabel(tr("field.stack_shrink"))
 
         # Downscale button
         self._update_downscale_button_label()
@@ -399,13 +401,14 @@ class MainWindow(wx.Frame):
         header.SetBackgroundColour(WHITE)
         header_sz = wx.BoxSizer(wx.HORIZONTAL)
 
-        title = wx.StaticText(header, label=tr("app.title"))
-        title_font = title.GetFont()
+        self._header_title = wx.StaticText(header, label=tr("app.title"))
+        self._dynamic_labels.append((self._header_title, "app.title", {}))
+        title_font = self._header_title.GetFont()
         title_font.SetPointSize(14)
         title_font.SetWeight(wx.FONTWEIGHT_BOLD)
-        title.SetFont(title_font)
-        title.SetForegroundColour(TEXT_MAIN)
-        header_sz.Add(title, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 14)
+        self._header_title.SetFont(title_font)
+        self._header_title.SetForegroundColour(TEXT_MAIN)
+        header_sz.Add(self._header_title, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 14)
 
         header_sz.AddStretchSpacer(1)
 
@@ -414,7 +417,7 @@ class MainWindow(wx.Frame):
         self._btn_lang.SetBackgroundColour(BTN_DEFAULT)
         self._btn_lang.SetForegroundColour(TEXT_MAIN)
         self._btn_lang.SetWindowStyleFlag(wx.BORDER_NONE)
-        self._btn_lang.SetToolTip("Switch UI language / 切换界面语言")
+        self._btn_lang.SetToolTip(tr("btn.lang_toggle_tooltip"))
         self._btn_lang.Bind(wx.EVT_BUTTON, self._on_lang_button)
         header_sz.Add(self._btn_lang, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
@@ -568,9 +571,10 @@ class MainWindow(wx.Frame):
         sc_sz = wx.BoxSizer(wx.VERTICAL)
 
         # Llama URL
-        url_label = wx.StaticText(set_card, label=tr("field.llama_url"))
-        url_label.SetForegroundColour(TEXT_MAIN)
-        sc_sz.Add(url_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self._url_label = wx.StaticText(set_card, label=tr("field.llama_url"))
+        self._dynamic_labels.append((self._url_label, "field.llama_url", {}))
+        self._url_label.SetForegroundColour(TEXT_MAIN)
+        sc_sz.Add(self._url_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         url_row = wx.BoxSizer(wx.HORIZONTAL)
         self._url_input = wx.TextCtrl(set_card, value=cfg.translator.llama.url, size=(200, -1))
         url_row.Add(self._url_input, 1, wx.RIGHT, 5)
@@ -581,17 +585,22 @@ class MainWindow(wx.Frame):
 
         # Source / Target lang
         lang_row = wx.BoxSizer(wx.HORIZONTAL)
-        lang_row.Add(wx.StaticText(set_card, label=tr("field.source_lang")), 0, wx.ALIGN_CENTER_VERTICAL)
+        self._src_lang_label = wx.StaticText(set_card, label=tr("field.source_lang"))
+        self._dynamic_labels.append((self._src_lang_label, "field.source_lang", {}))
+        lang_row.Add(self._src_lang_label, 0, wx.ALIGN_CENTER_VERTICAL)
         self._src_lang = wx.TextCtrl(set_card, value=cfg.source_lang, size=(60, -1))
         lang_row.Add(self._src_lang, 0, wx.LEFT, 5)
-        lang_row.Add(wx.StaticText(set_card, label=tr("field.target_lang")), 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+        self._tgt_lang_label = wx.StaticText(set_card, label=tr("field.target_lang"))
+        self._dynamic_labels.append((self._tgt_lang_label, "field.target_lang", {}))
+        lang_row.Add(self._tgt_lang_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
         self._tgt_lang = wx.TextCtrl(set_card, value=cfg.target_lang, size=(60, -1))
         lang_row.Add(self._tgt_lang, 0, wx.LEFT, 5)
         sc_sz.Add(lang_row, 0, wx.ALL, 10)
 
         # Pipeline params
         pipe_row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self._interval_input, isz = _make_float_input(set_card, tr("field.cycle_interval"), cfg.pipeline.cycle_interval)
+        self._interval_input, _interval_lbl, isz = _make_float_input(set_card, tr("field.cycle_interval"), cfg.pipeline.cycle_interval)
+        self._dynamic_labels.append((_interval_lbl, "field.cycle_interval", {}))
         pipe_row1.Add(isz, 0)
         sc_sz.Add(pipe_row1, 0, wx.ALL, 10)
 
@@ -617,42 +626,49 @@ class MainWindow(wx.Frame):
         cs = wx.BoxSizer(wx.VERTICAL)
 
         # Engine info
-        info_label = wx.StaticText(card, label="PP-OCRv6 ONNX Runtime")
-        info_font = info_label.GetFont()
+        self._ocr_info_label = wx.StaticText(card, label=tr("engine.info"))
+        self._dynamic_labels.append((self._ocr_info_label, "engine.info", {}))
+        info_font = self._ocr_info_label.GetFont()
         info_font.SetWeight(wx.FONTWEIGHT_BOLD)
-        info_label.SetFont(info_font)
-        info_label.SetForegroundColour(TEXT_MAIN)
-        cs.Add(info_label, 0, wx.ALL, 10)
+        self._ocr_info_label.SetFont(info_font)
+        self._ocr_info_label.SetForegroundColour(TEXT_MAIN)
+        cs.Add(self._ocr_info_label, 0, wx.ALL, 10)
 
         # 动态显示实际加载的模型路径（来自配置文件）
         det_name = os.path.basename(cfg.ocr.det_model_dir.rstrip("/\\"))
         rec_name = os.path.basename(cfg.ocr.rec_model_dir.rstrip("/\\"))
-        hint = _hint_label(card, f"{det_name} / {rec_name} — ONNX inference")
-        cs.Add(hint, 0, wx.LEFT | wx.RIGHT, 10)
+        self._ocr_hint_label = _hint_label(card, tr("engine.model_hint", det=det_name, rec=rec_name))
+        self._dynamic_labels.append((self._ocr_hint_label, "engine.model_hint", {"det": det_name, "rec": rec_name}))
+        cs.Add(self._ocr_hint_label, 0, wx.LEFT | wx.RIGHT, 10)
 
         cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
         # ── Detection params ──
-        det_label = wx.StaticText(card, label=tr("section.detection"))
-        det_label.SetForegroundColour(TEXT_MUTED)
-        cs.Add(det_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self._ocr_det_label = wx.StaticText(card, label=tr("section.detection"))
+        self._dynamic_labels.append((self._ocr_det_label, "section.detection", {}))
+        self._ocr_det_label.SetForegroundColour(TEXT_MUTED)
+        cs.Add(self._ocr_det_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
 
         det_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._det_box_thresh_input, dbs = _make_float_input(card, tr("field.det_box_thresh"), cfg.ocr.det_box_thresh)
+        self._det_box_thresh_input, _det_box_thresh_lbl, dbs = _make_float_input(card, tr("field.det_box_thresh"), cfg.ocr.det_box_thresh)
+        self._dynamic_labels.append((_det_box_thresh_lbl, "field.det_box_thresh", {}))
         det_row.Add(dbs, 0, wx.RIGHT, 16)
-        self._det_binary_thresh_input, dns = _make_float_input(card, tr("field.det_binary_thresh"), cfg.ocr.det_binary_thresh)
+        self._det_binary_thresh_input, _det_binary_thresh_lbl, dns = _make_float_input(card, tr("field.det_binary_thresh"), cfg.ocr.det_binary_thresh)
+        self._dynamic_labels.append((_det_binary_thresh_lbl, "field.det_binary_thresh", {}))
         det_row.Add(dns, 0)
         cs.Add(det_row, 0, wx.ALL, 10)
 
         cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
         # ── Recognition ──
-        rec_label = wx.StaticText(card, label=tr("section.recognition"))
-        rec_label.SetForegroundColour(TEXT_MUTED)
-        cs.Add(rec_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self._ocr_rec_label = wx.StaticText(card, label=tr("section.recognition"))
+        self._dynamic_labels.append((self._ocr_rec_label, "section.recognition", {}))
+        self._ocr_rec_label.SetForegroundColour(TEXT_MUTED)
+        cs.Add(self._ocr_rec_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
 
         rec_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._min_conf_input, mcs = _make_float_input(card, tr("field.min_confidence"), cfg.ocr.min_confidence)
+        self._min_conf_input, _min_conf_lbl, mcs = _make_float_input(card, tr("field.min_confidence"), cfg.ocr.min_confidence)
+        self._dynamic_labels.append((_min_conf_lbl, "field.min_confidence", {}))
         rec_row.Add(mcs, 0)
         cs.Add(rec_row, 0, wx.ALL, 10)
 
@@ -677,11 +693,14 @@ class MainWindow(wx.Frame):
 
         # Connection params
         row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self._timeout_input, tos = _make_int_input(card, tr("field.timeout"), ll.timeout)
+        self._timeout_input, _timeout_lbl, tos = _make_int_input(card, tr("field.timeout"), ll.timeout)
+        self._dynamic_labels.append((_timeout_lbl, "field.timeout", {}))
         row1.Add(tos, 0, wx.RIGHT, 16)
-        self._max_retries_input, mrs = _make_int_input(card, tr("field.max_retries"), ll.max_retries)
+        self._max_retries_input, _max_retries_lbl, mrs = _make_int_input(card, tr("field.max_retries"), ll.max_retries)
+        self._dynamic_labels.append((_max_retries_lbl, "field.max_retries", {}))
         row1.Add(mrs, 0, wx.RIGHT, 16)
-        self._parallel_input, prs = _make_int_input(card, tr("field.parallel"), ll.parallel_requests)
+        self._parallel_input, _parallel_lbl, prs = _make_int_input(card, tr("field.parallel"), ll.parallel_requests)
+        self._dynamic_labels.append((_parallel_lbl, "field.parallel", {}))
         row1.Add(prs, 0)
         cs.Add(row1, 0, wx.ALL, 10)
 
@@ -690,18 +709,23 @@ class MainWindow(wx.Frame):
         # Inference params
         ip = ll.inference_params
         row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self._temp_input, tms = _make_float_input(card, tr("field.temperature"), ip["temperature"])
+        self._temp_input, _temp_lbl, tms = _make_float_input(card, tr("field.temperature"), ip["temperature"])
+        self._dynamic_labels.append((_temp_lbl, "field.temperature", {}))
         row2.Add(tms, 0, wx.RIGHT, 16)
-        self._topk_input, tks = _make_int_input(card, tr("field.top_k"), ip["top_k"])
+        self._topk_input, _topk_lbl, tks = _make_int_input(card, tr("field.top_k"), ip["top_k"])
+        self._dynamic_labels.append((_topk_lbl, "field.top_k", {}))
         row2.Add(tks, 0, wx.RIGHT, 16)
-        self._topp_input, tps = _make_float_input(card, tr("field.top_p"), ip["top_p"])
+        self._topp_input, _topp_lbl, tps = _make_float_input(card, tr("field.top_p"), ip["top_p"])
+        self._dynamic_labels.append((_topp_lbl, "field.top_p", {}))
         row2.Add(tps, 0)
         cs.Add(row2, 0, wx.ALL, 10)
 
         row3 = wx.BoxSizer(wx.HORIZONTAL)
-        self._rpen_input, rps = _make_float_input(card, tr("field.repeat_penalty"), ip["repeat_penalty"])
+        self._rpen_input, _rpen_lbl, rps = _make_float_input(card, tr("field.repeat_penalty"), ip["repeat_penalty"])
+        self._dynamic_labels.append((_rpen_lbl, "field.repeat_penalty", {}))
         row3.Add(rps, 0, wx.RIGHT, 16)
-        self._npredict_input, nps = _make_int_input(card, tr("field.n_predict"), ip["n_predict"])
+        self._npredict_input, _npredict_lbl, nps = _make_int_input(card, tr("field.n_predict"), ip["n_predict"])
+        self._dynamic_labels.append((_npredict_lbl, "field.n_predict", {}))
         row3.Add(nps, 0)
         cs.Add(row3, 0, wx.ALL, 10)
 
@@ -724,18 +748,23 @@ class MainWindow(wx.Frame):
         cs = wx.BoxSizer(wx.VERTICAL)
 
         row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self._font_size_input, fss = _make_int_input(card, tr("field.font_size"), cfg.overlay.font_size)
+        self._font_size_input, _font_size_lbl, fss = _make_int_input(card, tr("field.font_size"), cfg.overlay.font_size)
+        self._dynamic_labels.append((_font_size_lbl, "field.font_size", {}))
         row1.Add(fss, 0, wx.RIGHT, 16)
-        self._min_font_size_input, mfs = _make_int_input(card, tr("field.min_font_size"), cfg.overlay.min_font_size)
+        self._min_font_size_input, _min_font_size_lbl, mfs = _make_int_input(card, tr("field.min_font_size"), cfg.overlay.min_font_size)
+        self._dynamic_labels.append((_min_font_size_lbl, "field.min_font_size", {}))
         row1.Add(mfs, 0, wx.RIGHT, 16)
-        self._bg_opacity_input, bos = _make_float_input(card, tr("field.bg_opacity"), cfg.overlay.background_opacity)
+        self._bg_opacity_input, _bg_opacity_lbl, bos = _make_float_input(card, tr("field.bg_opacity"), cfg.overlay.background_opacity)
+        self._dynamic_labels.append((_bg_opacity_lbl, "field.bg_opacity", {}))
         row1.Add(bos, 0)
         cs.Add(row1, 0, wx.ALL, 10)
 
         row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self._font_family_input, ffs = _make_labeled_input(card, tr("field.font_family"), cfg.overlay.font_family, size=(140, -1))
+        self._font_family_input, _font_family_lbl, ffs = _make_labeled_input(card, tr("field.font_family"), cfg.overlay.font_family, size=(140, -1))
+        self._dynamic_labels.append((_font_family_lbl, "field.font_family", {}))
         row2.Add(ffs, 0, wx.RIGHT, 16)
-        self._text_color_input, tcs = _make_labeled_input(card, tr("field.text_color"), cfg.overlay.text_color, size=(70, -1))
+        self._text_color_input, _text_color_lbl, tcs = _make_labeled_input(card, tr("field.text_color"), cfg.overlay.text_color, size=(70, -1))
+        self._dynamic_labels.append((_text_color_lbl, "field.text_color", {}))
         row2.Add(tcs, 0)
         cs.Add(row2, 0, wx.ALL, 10)
 
@@ -769,11 +798,14 @@ class MainWindow(wx.Frame):
         cs = wx.BoxSizer(wx.VERTICAL)
 
         row1 = wx.BoxSizer(wx.HORIZONTAL)
-        self._backend_input, bes = _make_labeled_input(card, tr("field.backend"), cfg.capture.backend, size=(90, -1))
+        self._backend_input, _backend_lbl, bes = _make_labeled_input(card, tr("field.backend"), cfg.capture.backend, size=(90, -1))
+        self._dynamic_labels.append((_backend_lbl, "field.backend", {}))
         row1.Add(bes, 0, wx.RIGHT, 16)
-        self._cam_index_input, cis = _make_int_input(card, tr("field.camera_index"), cfg.capture.camera_index)
+        self._cam_index_input, _cam_index_lbl, cis = _make_int_input(card, tr("field.camera_index"), cfg.capture.camera_index)
+        self._dynamic_labels.append((_cam_index_lbl, "field.camera_index", {}))
         row1.Add(cis, 0, wx.RIGHT, 16)
-        self._fps_input, fps = _make_int_input(card, tr("field.fps"), cfg.capture.fps)
+        self._fps_input, _fps_lbl, fps = _make_int_input(card, tr("field.fps"), cfg.capture.fps)
+        self._dynamic_labels.append((_fps_lbl, "field.fps", {}))
         row1.Add(fps, 0)
         cs.Add(row1, 0, wx.ALL, 10)
 
@@ -797,31 +829,37 @@ class MainWindow(wx.Frame):
 
         # Row 1: Single, Pause, Quit
         hk_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._hotkey_single_input, hss = _make_labeled_input(card, tr("field.hotkey_single"),
+        self._hotkey_single_input, _hotkey_single_lbl, hss = _make_labeled_input(card, tr("field.hotkey_single"),
                                                               cfg.gui.hotkey_single_translate, size=(70, -1))
+        self._dynamic_labels.append((_hotkey_single_lbl, "field.hotkey_single", {}))
         hk_row.Add(hss, 0, wx.RIGHT, 10)
-        self._hotkey_pause_input, hps = _make_labeled_input(card, tr("field.hotkey_pause"),
+        self._hotkey_pause_input, _hotkey_pause_lbl, hps = _make_labeled_input(card, tr("field.hotkey_pause"),
                                                              cfg.gui.hotkey_pause, size=(70, -1))
+        self._dynamic_labels.append((_hotkey_pause_lbl, "field.hotkey_pause", {}))
         hk_row.Add(hps, 0, wx.RIGHT, 10)
-        self._hotkey_quit_input, hqs = _make_labeled_input(card, tr("field.hotkey_quit"),
+        self._hotkey_quit_input, _hotkey_quit_lbl, hqs = _make_labeled_input(card, tr("field.hotkey_quit"),
                                                             cfg.gui.hotkey_quit, size=(70, -1))
+        self._dynamic_labels.append((_hotkey_quit_lbl, "field.hotkey_quit", {}))
         hk_row.Add(hqs, 0)
         cs.Add(hk_row, 0, wx.ALL, 10)
 
         # Row 2: Region Translate, Clear Overlay
         hk_row2 = wx.BoxSizer(wx.HORIZONTAL)
-        self._hotkey_region_input, hrs = _make_labeled_input(card, tr("field.hotkey_region"),
+        self._hotkey_region_input, _hotkey_region_lbl, hrs = _make_labeled_input(card, tr("field.hotkey_region"),
                                                               cfg.gui.hotkey_region_translate, size=(70, -1))
+        self._dynamic_labels.append((_hotkey_region_lbl, "field.hotkey_region", {}))
         hk_row2.Add(hrs, 0, wx.RIGHT, 10)
-        self._hotkey_clear_input, hcs = _make_labeled_input(card, tr("field.hotkey_clear"),
+        self._hotkey_clear_input, _hotkey_clear_lbl, hcs = _make_labeled_input(card, tr("field.hotkey_clear"),
                                                              cfg.gui.hotkey_clear_overlay, size=(70, -1))
+        self._dynamic_labels.append((_hotkey_clear_lbl, "field.hotkey_clear", {}))
         hk_row2.Add(hcs, 0)
         cs.Add(hk_row2, 0, wx.ALL, 10)
 
         # Row 3: Hold Hide hotkey
         hk_row3 = wx.BoxSizer(wx.HORIZONTAL)
-        self._hotkey_hold_hide_input, hhs = _make_labeled_input(card, tr("field.hotkey_hold_hide"),
+        self._hotkey_hold_hide_input, _hotkey_hold_hide_lbl, hhs = _make_labeled_input(card, tr("field.hotkey_hold_hide"),
                                                                   cfg.gui.hotkey_hold_hide, size=(70, -1))
+        self._dynamic_labels.append((_hotkey_hold_hide_lbl, "field.hotkey_hold_hide", {}))
         hk_row3.Add(hhs, 0)
         cs.Add(hk_row3, 0, wx.ALL, 10)
 
@@ -1050,7 +1088,7 @@ class MainWindow(wx.Frame):
             return
 
         self._btn_test_url.Enable(False)
-        self._btn_test_url.SetLabel("...")
+        self._btn_test_url.SetLabel(tr("test.connecting"))
         wx.GetApp().Yield()
 
         import threading
@@ -1213,15 +1251,16 @@ class MainWindow(wx.Frame):
 
     def update_cycle_info(self, cycle: CycleLog):
         if cycle.skipped:
-            info = f"Cycle #{cycle.cycle_id}: SKIPPED ({cycle.skip_reason})"
+            info = tr("cycle.skipped", id=cycle.cycle_id, reason=cycle.skip_reason or "unknown")
         else:
-            info = (
-                f"Cycle #{cycle.cycle_id}: {len(cycle.text_boxes)} boxes, "
-                f"Total: {cycle.total_ms:.0f}ms | "
-                f"Cap: {cycle.capture_ms:.0f}ms | "
-                f"OCR: {cycle.ocr_det_ms + cycle.ocr_rec_ms:.0f}ms | "
-                f"Trans: {cycle.translate_ms:.0f}ms"
-            )
+            ocr_ms = cycle.ocr_det_ms + cycle.ocr_rec_ms
+            info = tr("cycle.info",
+                      id=cycle.cycle_id,
+                      count=len(cycle.text_boxes),
+                      total=f"{cycle.total_ms:.0f}",
+                      cap=f"{cycle.capture_ms:.0f}",
+                      ocr=f"{ocr_ms:.0f}",
+                      trans=f"{cycle.translate_ms:.0f}")
         wx.CallAfter(self._cycle_info_label.SetLabel, info)
 
     def _trim_result_text(self):
@@ -1233,7 +1272,7 @@ class MainWindow(wx.Frame):
                 trim_at = nl_pos + 1
             self._result_text.Remove(0, trim_at)
             self._result_text.SetValue(
-                f"... (older results trimmed) ...\n{self._result_text.GetValue()}"
+                f"{tr('result.trimmed')}\n{self._result_text.GetValue()}"
             )
 
     # ── Sync Config from GUI ───────────────────────────────────────
@@ -1428,7 +1467,7 @@ class TrayIcon(wx.adv.TaskBarIcon):
         super().__init__()
         self._frame = frame
         self.SetIcon(wx.Icon(wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, wx.ART_OTHER, (16, 16))),
-                     "Screen Translate")
+                     tr("tray.tooltip"))
         self.Bind(wx.adv.EVT_TASKBAR_LEFT_DCLICK, self._on_left_dclick)
 
     def _on_left_dclick(self, event):

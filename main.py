@@ -22,7 +22,7 @@ from src.python.gui.region_selector import RegionSelector
 from src.python.capture.screenshot import capture_fullscreen
 from src.python.overlay.overlay import OverlayWindow
 from src.python.pipeline.pipeline import Pipeline
-from src.python.i18n import init_locale
+from src.python.i18n import init_locale, tr
 
 
 class App(wx.App):
@@ -99,7 +99,7 @@ class App(wx.App):
             if self._window:
                 self._window.sync_config_from_gui()
             if not self._pipeline.init():
-                wx.MessageBox("Pipeline init failed. Check logs.", "Error",
+                wx.MessageBox(tr("dlg.init_failed"), tr("dlg.error_title"),
                               wx.OK | wx.ICON_ERROR)
                 return
             self._pipeline.start()

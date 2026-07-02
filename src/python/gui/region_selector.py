@@ -81,7 +81,7 @@ class RegionSelector(wx.Frame):
 
         # Create fullscreen frame
         style = wx.NO_BORDER | wx.STAY_ON_TOP | wx.FRAME_NO_TASKBAR
-        super().__init__(None, title="Region Selector", style=style)
+        super().__init__(None, title=tr("region_selector.title"), style=style)
         self.SetSize((self._screen_w, self._screen_h))
         self.SetPosition((0, 0))
 
