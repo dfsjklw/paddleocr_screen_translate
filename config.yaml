@@ -68,6 +68,8 @@ overlay:
   font_family: "Microsoft YaHei"
   # 背景不透明度 (0.0~1.0)，越高越能遮盖原文
   background_opacity: 0.5
+  # 背景颜色 (十六进制)
+  background_color: "#000000"
   # 文本颜色 (十六进制)
   text_color: "#FFFFFF"
   # 是否启用 WDA_EXCLUDEFROMCAPTURE 防污染

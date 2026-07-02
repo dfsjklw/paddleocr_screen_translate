@@ -143,6 +143,7 @@ class OverlayWindow(wx.Frame):
         self._font_size = config.font_size
         self._font_family = config.font_family
         self._bg_opacity = int(config.background_opacity * 255)
+        self._bg_color = _parse_hex_color(config.background_color)
         self._text_color = _parse_hex_color(config.text_color)
         self._exclude_capture = config.exclude_from_capture
         self._min_font_size = getattr(config, 'min_font_size', 8)
@@ -279,6 +280,29 @@ class OverlayWindow(wx.Frame):
         if self._items:
             self.Show(True)
             self.Raise()
+            self._render_to_layered_window()
+
+    # ── 运行时配置更新 ─────────────────────────────────────────────
+
+    def apply_config(self, config: OverlayConfig):
+        """运行时更新覆盖层渲染参数。线程安全。"""
+        wx.CallAfter(self._apply_config_impl, config)
+
+    def _apply_config_impl(self, config: OverlayConfig):
+        """（主线程）更新渲染参数并触发重绘"""
+        self._config = config
+        self._font_size = config.font_size
+        self._font_family = config.font_family
+        self._bg_opacity = int(config.background_opacity * 255)
+        self._bg_color = _parse_hex_color(config.background_color)
+        self._text_color = _parse_hex_color(config.text_color)
+        self._min_font_size = config.min_font_size
+        self._stack_shrink = config.stack_shrink
+        # 清空字体缓存，下次渲染时重建
+        self._cached_font = None
+        self._font_cache.clear()
+        # 如果当前有内容则立即重绘
+        if self._items and self.IsShown():
             self._render_to_layered_window()
 
     # ── Per-pixel Alpha 渲染 ───────────────────────────────────────
@@ -628,7 +652,7 @@ class OverlayWindow(wx.Frame):
             rect_h = item.h + margin * 2
 
         # 1. 先绘制高不透明度背景，遮盖原文（总是绘制，即使译文为空）
-        bg_color = wx.Colour(0, 0, 0, self._bg_opacity)
+        bg_color = wx.Colour(self._bg_color.Red(), self._bg_color.Green(), self._bg_color.Blue(), self._bg_opacity)
         gc.SetBrush(wx.Brush(bg_color))
         gc.SetPen(wx.Pen(wx.Colour(0, 0, 0, 0)))
         gc.DrawRectangle(x, y, rect_w, rect_h)

@@ -765,7 +765,10 @@ class MainWindow(wx.Frame):
         row2.Add(ffs, 0, wx.RIGHT, 16)
         self._text_color_input, _text_color_lbl, tcs = _make_labeled_input(card, tr("field.text_color"), cfg.overlay.text_color, size=(70, -1))
         self._dynamic_labels.append((_text_color_lbl, "field.text_color", {}))
-        row2.Add(tcs, 0)
+        row2.Add(tcs, 0, wx.RIGHT, 16)
+        self._bg_color_input, _bg_color_lbl, bgs = _make_labeled_input(card, tr("field.bg_color"), cfg.overlay.background_color, size=(70, -1))
+        self._dynamic_labels.append((_bg_color_lbl, "field.bg_color", {}))
+        row2.Add(bgs, 0)
         cs.Add(row2, 0, wx.ALL, 10)
 
         self._tb_exclude = ToggleSwitch(card, label=tr("cb.exclude_capture"))
@@ -1318,6 +1321,7 @@ class MainWindow(wx.Frame):
         except ValueError: pass
         cfg.overlay.font_family = self._font_family_input.GetValue().strip()
         cfg.overlay.text_color = self._text_color_input.GetValue().strip()
+        cfg.overlay.background_color = self._bg_color_input.GetValue().strip()
         try: cfg.overlay.background_opacity = float(self._bg_opacity_input.GetValue())
         except ValueError: pass
         cfg.overlay.exclude_from_capture = self._tb_exclude.GetValue()

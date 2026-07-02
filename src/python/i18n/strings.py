@@ -294,6 +294,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "BG opacity:",
         "zh": "背景透明度:",
     },
+    "field.bg_color": {
+        "en": "BG color:",
+        "zh": "背景颜色:",
+    },
     "field.font_family": {
         "en": "Font family:",
         "zh": "字体:",

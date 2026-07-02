@@ -98,6 +98,8 @@ class App(wx.App):
             # 先将 GUI 上所有参数写回 config
             if self._window:
                 self._window.sync_config_from_gui()
+            # 将覆盖层配置同步到覆盖窗口
+            self._overlay.apply_config(self._config.overlay)
             if not self._pipeline.init():
                 wx.MessageBox(tr("dlg.init_failed"), tr("dlg.error_title"),
                               wx.OK | wx.ICON_ERROR)
@@ -112,6 +114,7 @@ class App(wx.App):
 
         if self._window:
             self._window.sync_config_from_gui()
+        self._overlay.apply_config(self._config.overlay)
 
         # 清除覆盖层，防止截图包含已翻译的文本
         self._overlay.clear()
@@ -179,6 +182,7 @@ class App(wx.App):
             self._window.Show()
             self._window.Raise()
             self._window.sync_config_from_gui()
+        self._overlay.apply_config(self._config.overlay)
 
         # 在后台线程中运行 OCR + 翻译 + 覆盖
         self._pipeline.run_region_translate(
