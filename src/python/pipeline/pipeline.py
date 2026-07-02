@@ -327,7 +327,7 @@ class Pipeline:
         orig_h, orig_w = frame.shape[:2]
 
         # 小图放大预处理（如果宽或高 < 300px，等比例放大 3x）
-        frame = self._maybe_upscale(frame)
+        frame, upscale_factor = self._maybe_upscale(frame)
 
         scale_factor = 1.0
         max_size = self._config.pipeline.downscale_max_size
@@ -354,6 +354,14 @@ class Pipeline:
             for box in boxes:
                 box.points = [
                     (p[0] * inv_scale, p[1] * inv_scale) for p in box.points
+                ]
+
+        # 如果做了小图放大但未做下采样，将 OCR 坐标还原到原始图像空间
+        if upscale_factor > 1.0 and scale_factor >= 1.0:
+            inv_upscale = 1.0 / upscale_factor
+            for box in boxes:
+                box.points = [
+                    (p[0] * inv_upscale, p[1] * inv_upscale) for p in box.points
                 ]
 
         # 过滤无意义的文本片段
@@ -492,7 +500,7 @@ class Pipeline:
         orig_h, orig_w = frame.shape[:2]
 
         # 小图放大预处理（如果宽或高 < 300px，等比例放大 3x）
-        frame = self._maybe_upscale(frame)
+        frame, upscale_factor = self._maybe_upscale(frame)
 
         scale_factor = 1.0
         max_size = self._config.pipeline.downscale_max_size
@@ -517,6 +525,14 @@ class Pipeline:
             for box in boxes:
                 box.points = [
                     (p[0] * inv_scale, p[1] * inv_scale) for p in box.points
+                ]
+
+        # 如果做了小图放大但未做下采样，将 OCR 坐标还原到原始图像空间
+        if upscale_factor > 1.0 and scale_factor >= 1.0:
+            inv_upscale = 1.0 / upscale_factor
+            for box in boxes:
+                box.points = [
+                    (p[0] * inv_upscale, p[1] * inv_upscale) for p in box.points
                 ]
 
         # 过滤无意义的文本片段
@@ -661,7 +677,7 @@ class Pipeline:
         
         return meaningful_boxes
 
-    def _maybe_upscale(self, frame: np.ndarray) -> np.ndarray:
+    def _maybe_upscale(self, frame: np.ndarray) -> tuple[np.ndarray, float]:
         """
         小图放大预处理。
 
@@ -672,21 +688,21 @@ class Pipeline:
             frame: BGR 输入图像 (numpy array)
 
         Returns:
-            放大后的图像，或未修改的原图
+            (放大后的图像, 放大倍数) — 未放大时倍数为 1.0
         """
         if not self._config.pipeline.upscale_small_image:
-            return frame
+            return frame, 1.0
 
         h, w = frame.shape[:2]
         if w >= 300 and h >= 300:
-            return frame
+            return frame, 1.0
 
         scale = 3.0
         new_w = int(round(w * scale))
         new_h = int(round(h * scale))
         upscaled = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
         print(f"[Pipeline] Upscaled small image {w}x{h} → {new_w}x{new_h}")
-        return upscaled
+        return upscaled, scale
 
     def _merge_adjacent_boxes(self, boxes: list[TextBox]) -> list[TextBox]:
         """

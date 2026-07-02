@@ -75,13 +75,15 @@ overlay:
   # 堆叠检测缩小：多个覆盖层互相遮盖时自动缩小字号，最小字号下限
   min_font_size: 8
   # 堆叠检测缩小总开关
-  stack_shrink: false
+  stack_shrink: true
 
 pipeline:
   # 目标周期 (秒)
   cycle_interval: 2.0
   # OCR前图像长边最大像素 (超过此值等比缩小, 0=不限制，默认关闭)
   downscale_max_size: 0
+  # 小图放大: 图像宽或高小于300px时放大3x以提高OCR识别率
+  upscale_small_image: true
 
 gui:
   # UI 语言: "en" (English) 或 "zh" (中文)
