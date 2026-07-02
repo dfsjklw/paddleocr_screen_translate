@@ -25,6 +25,8 @@ class LlamaConfig:
         "temperature": 0.7, "top_k": 20, "top_p": 0.6,
         "repeat_penalty": 1.05, "n_predict": 512,
     })
+    translate_prompt: str = field(default_factory=lambda:
+        "将以下英语翻译成中文,非英语部分原文输出：\n{text}")
 
 
 
@@ -110,8 +112,6 @@ class AppConfig:
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     ocr: OcrConfig = field(default_factory=OcrConfig)
     translator: TranslatorConfig = field(default_factory=TranslatorConfig)
-    source_lang: str = "en"
-    target_lang: str = "zh"
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     gui: GuiConfig = field(default_factory=GuiConfig)

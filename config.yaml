@@ -55,10 +55,8 @@ translator:
       top_p: 0.6
       repeat_penalty: 1.05
       n_predict: 512
-
-# 源语言和目标语言
-source_lang: "en"
-target_lang: "zh"
+    # 翻译提示词模板 ({text} 会被替换为待翻译文本)
+    translate_prompt: "将以下英语翻译成中文,非英语部分原文输出：\n{text}"
 
 overlay:
   # 覆盖层后端: wxpython (跨平台透明窗口)

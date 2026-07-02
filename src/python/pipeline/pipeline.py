@@ -401,8 +401,6 @@ class Pipeline:
             batch_texts = [t for _, t in to_translate]
             batch_results = self._translator.translate_batch(
                 batch_texts,
-                self._config.source_lang,
-                self._config.target_lang,
                 parallel=self._config.translator.llama.parallel_requests,
             )
             for j, (orig_idx, orig_text) in enumerate(to_translate):
@@ -568,8 +566,6 @@ class Pipeline:
             batch_texts = [t for _, t in to_translate]
             batch_results = self._translator.translate_batch(
                 batch_texts,
-                self._config.source_lang,
-                self._config.target_lang,
                 parallel=self._config.translator.llama.parallel_requests,
             )
             for j, (orig_idx, orig_text) in enumerate(to_translate):

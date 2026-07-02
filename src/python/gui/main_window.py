@@ -583,20 +583,6 @@ class MainWindow(wx.Frame):
         url_row.Add(self._btn_test_url, 0)
         sc_sz.Add(url_row, 0, wx.EXPAND | wx.ALL, 10)
 
-        # Source / Target lang
-        lang_row = wx.BoxSizer(wx.HORIZONTAL)
-        self._src_lang_label = wx.StaticText(set_card, label=tr("field.source_lang"))
-        self._dynamic_labels.append((self._src_lang_label, "field.source_lang", {}))
-        lang_row.Add(self._src_lang_label, 0, wx.ALIGN_CENTER_VERTICAL)
-        self._src_lang = wx.TextCtrl(set_card, value=cfg.source_lang, size=(60, -1))
-        lang_row.Add(self._src_lang, 0, wx.LEFT, 5)
-        self._tgt_lang_label = wx.StaticText(set_card, label=tr("field.target_lang"))
-        self._dynamic_labels.append((self._tgt_lang_label, "field.target_lang", {}))
-        lang_row.Add(self._tgt_lang_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
-        self._tgt_lang = wx.TextCtrl(set_card, value=cfg.target_lang, size=(60, -1))
-        lang_row.Add(self._tgt_lang, 0, wx.LEFT, 5)
-        sc_sz.Add(lang_row, 0, wx.ALL, 10)
-
         # Pipeline params
         pipe_row1 = wx.BoxSizer(wx.HORIZONTAL)
         self._interval_input, _interval_lbl, isz = _make_float_input(set_card, tr("field.cycle_interval"), cfg.pipeline.cycle_interval)
@@ -728,6 +714,22 @@ class MainWindow(wx.Frame):
         self._dynamic_labels.append((_npredict_lbl, "field.n_predict", {}))
         row3.Add(nps, 0)
         cs.Add(row3, 0, wx.ALL, 10)
+
+        # ── Prompt template section ──
+        cs.Add(wx.StaticLine(card), 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        prompt_section_label = _section_label(card, tr("section.prompt_template"))
+        self._dynamic_labels.append((prompt_section_label, "section.prompt_template", {}))
+        cs.Add(prompt_section_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        self._prompt_input = wx.TextCtrl(
+            card, value=ll.translate_prompt,
+            size=(-1, 80), style=wx.TE_MULTILINE,
+        )
+        cs.Add(self._prompt_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        prompt_hint = _hint_label(card, tr("field.prompt_hint"))
+        cs.Add(prompt_hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         card.SetSizer(cs)
         sz.Add(card, 0, wx.EXPAND | wx.ALL, outer_pad)
@@ -1283,8 +1285,6 @@ class MainWindow(wx.Frame):
     def sync_config_from_gui(self):
         cfg = self._config
 
-        cfg.source_lang = self._src_lang.GetValue().strip()
-        cfg.target_lang = self._tgt_lang.GetValue().strip()
         cfg.translator.llama.url = self._url_input.GetValue().strip()
 
         try: cfg.pipeline.cycle_interval = float(self._interval_input.GetValue())
@@ -1314,6 +1314,7 @@ class MainWindow(wx.Frame):
         except ValueError: pass
         try: ll.inference_params["n_predict"] = int(self._npredict_input.GetValue())
         except ValueError: pass
+        ll.translate_prompt = self._prompt_input.GetValue()
 
         try: cfg.overlay.font_size = int(self._font_size_input.GetValue())
         except ValueError: pass
@@ -1348,9 +1349,6 @@ class MainWindow(wx.Frame):
 
     def get_url(self) -> str:
         return self._url_input.GetValue()
-
-    def get_langs(self) -> tuple[str, str]:
-        return self._src_lang.GetValue(), self._tgt_lang.GetValue()
 
     def get_interval(self) -> float:
         try: return float(self._interval_input.GetValue())

@@ -13,11 +13,7 @@ from typing import Optional
 
 from ..config.settings import TranslatorConfig, AppConfig
 
-# llama.cpp /v1/chat/completions 的请求格式
-#_TRANSLATE_PROMPT_ZH = "将以下文本翻译为中文，注意只需要输出翻译后的结果，不要额外解释：{text}"
-_TRANSLATE_PROMPT_ZH = "将以下英语翻译成中文,非英语部分原文输出：\n{text}"
-#_TRANSLATE_PROMPT_XX = "Translate the following text into {target}. Output ONLY the translation, nothing else:\n\n{text}"
-_TRANSLATE_PROMPT_XX = "{text}"
+# 翻译提示词现在由 config.yaml + GUI 动态配置
 
 
 @dataclass
@@ -33,17 +29,17 @@ class TranslatorBackend(ABC):
     """翻译后端抽象基类"""
 
     @abstractmethod
-    def translate_one(self, text: str, source_lang: str, target_lang: str) -> TranslationResult:
+    def translate_one(self, text: str) -> TranslationResult:
         ...
 
     def translate_batch(
-        self, texts: list[str], source_lang: str, target_lang: str, parallel: int = 4
+        self, texts: list[str], parallel: int = 4
     ) -> list[TranslationResult]:
         """并行翻译多条文本"""
         results: list[TranslationResult] = [None] * len(texts)
         with ThreadPoolExecutor(max_workers=parallel) as executor:
             future_to_idx = {
-                executor.submit(self.translate_one, t, source_lang, target_lang): i
+                executor.submit(self.translate_one, t): i
                 for i, t in enumerate(texts)
             }
             for future in as_completed(future_to_idx):
@@ -69,18 +65,16 @@ class LlamaCppTranslator(TranslatorBackend):
         self._timeout = config.llama.timeout
         self._max_retries = config.llama.max_retries
         self._params = config.llama.inference_params
-        self._target_lang = app_config.target_lang
+        self._translate_prompt = config.llama.translate_prompt
 
-    def _build_prompt(self, text: str, target_lang: str) -> str:
-        if target_lang in ("zh", "中文", "Chinese", "chinese"):
-            return _TRANSLATE_PROMPT_ZH.format(text=text)
-        return _TRANSLATE_PROMPT_XX.format(target=target_lang, text=text)
+    def _build_prompt(self, text: str) -> str:
+        return self._translate_prompt.format(text=text)
 
-    def translate_one(self, text: str, source_lang: str, target_lang: str) -> TranslationResult:
+    def translate_one(self, text: str) -> TranslationResult:
         if not text.strip():
             return TranslationResult(text="", original=text, status="ok")
 
-        prompt = self._build_prompt(text, target_lang)
+        prompt = self._build_prompt(text)
         payload = {
             "messages": [
                 {"role": "system", "content": ""},

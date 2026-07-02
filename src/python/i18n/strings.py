@@ -210,13 +210,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "llama.cpp URL:",
         "zh": "llama.cpp 地址:",
     },
-    "field.source_lang": {
-        "en": "Source:",
-        "zh": "源语言:",
+    "section.prompt_template": {
+        "en": "Prompt Template",
+        "zh": "提示词模板",
     },
-    "field.target_lang": {
-        "en": "Target:",
-        "zh": "目标语言:",
+    "field.prompt_hint": {
+        "en": "Use {text} as placeholder for the text to translate",
+        "zh": "使用 {text} 作为待翻译文本的占位符",
     },
     "field.cycle_interval": {
         "en": "Cycle interval (s):",

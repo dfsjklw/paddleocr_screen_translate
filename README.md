@@ -352,3 +352,37 @@ pyinstaller --noconfirm --clean --name ScreenTranslate --noconsole ^
 | `test_focused.py` | 针对性调试脚本 |
 | `debug_ocr.py` | OCR 调试辅助 |
 | `count_chars.py` | 字符统计工具 |
+
+---
+
+## 开源引用 / Acknowledgements
+
+本项目站在巨人的肩膀上，感谢以下开源项目：
+
+### 核心依赖
+
+| 项目 | 用途 | 协议 |
+|------|------|------|
+| [PaddlePaddle / PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) | PP-OCRv6 检测+识别模型架构与训练 | Apache 2.0 |
+| [ggml-org / llama.cpp](https://github.com/ggml-org/llama.cpp) | 本地大模型推理引擎（llama-server） | MIT |
+| [Tencent / HY-MT](https://github.com/Tencent-Hunyuan/HY-MT) | Hunyuan 翻译模型（GGUF 量化版） | Tencent HY Community License |
+| [HoVDuc / ppocrv5-onnx](https://github.com/HoVDuc/ppocrv5-onnx) | ONNX 模型转换参考与启发 | Apache 2.0 |
+
+### 运行时依赖
+
+| 项目 | 用途 | 协议 |
+|------|------|------|
+| [wxPython](https://wxpython.org/) | 跨平台桌面 GUI 框架 | wxWindows Library Licence (LGPL 衍生) |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | ONNX 模型推理引擎 | MIT |
+| [OpenCV](https://opencv.org/) | 图像采集与预处理 | Apache 2.0 |
+| [scikit-image](https://scikit-image.org/) | 图像处理辅助 | BSD-3-Clause |
+| [NumPy](https://numpy.org/) | 数值计算基础设施 | BSD-3-Clause |
+| [Pillow](https://python-pillow.org/) | 图像处理库 | Historical Permission Notice (HPND) |
+| [PyInstaller](https://pyinstaller.org/) | 应用打包工具 | Apache 2.0 / GPL 2.0+ (引导程序部分) |
+
+### 特别感谢
+
+- [PaddlePaddle](https://github.com/PaddlePaddle) 团队提供业界领先的 OCR 框架
+- [ggerganov](https://github.com/ggerganov) 及 llama.cpp 社区提供高效本地推理方案
+- 腾讯混元团队提供高质量翻译模型
+- 所有为本项目贡献代码、提交 Issue 和建议的开发者

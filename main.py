@@ -308,7 +308,7 @@ def main():
         except Exception:
             pass
 
-    print(f"[Main] Config loaded: source={config.source_lang}, target={config.target_lang}")
+    print(f"[Main] Config loaded: translator={config.translator.backend}")
     print(f"[Main] Translator: {config.translator.backend} @ {config.translator.llama.url}")
     print(f"[Main] Cycle interval: {config.pipeline.cycle_interval}s")
     print(f"[Main] UI language: {config.gui.ui_language}")
